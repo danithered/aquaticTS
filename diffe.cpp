@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 #include <boost/numeric/odeint.hpp>
 #include <boost/array.hpp>
 
@@ -12,14 +13,30 @@ const double b = 8.0 / 3.0;
 
 typedef std::vector< double> state_type;
 
+struct TempParams {
+	const double Tshift;
+	const double Tr;
+
+	TempParams(double p1, double p2): Tshift(p1), Tr(p2){};
+};
+
 class Model {
+public:
 	std::vector<std::function< void(const state_type&, state_type&, double) >> func_awake;
 	std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
+	
 	double sumNperK;
 	const double K;
 	const double Psleep;
 	const double Pwake;
 	const double PwakePlusDelta;
+	
+	//std::vector<double> Tr;	//Tr values in different times
+	//std::vector<double> Tshift;	//Tshift values in different times
+	//std::vector<double> Tr_times; //When to switch Tr - solution is lame, should have used std::map
+	std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
+	
+	std::map<double, double> extreme;
 
 	Model(std::vector<double> & Tranges, 
 			std::vector<double> & Tmins, 
@@ -70,6 +87,25 @@ class Model {
 
 	void operator()( const state_type &x , state_type &dxdt , double t ){
 		//compute temperature
+		//unsigned int tr = 0;
+		//for(tr = Tr_times.size(); tr != 0 && Tr_times[tr] > t; --tr){}
+		//dxdt[0] = Tr[tr] * std::cos(t) + Tshift[tr] - x[0];
+		
+		TempParams &Tpar = Tpars.begin()->second;
+		if(Tpars.size() > 1) {
+			double tcopy = t;
+			while(tcopy > Tpars.rbegin()->first) tcopy -= Tpars.rbegin()->first;
+			TempParams &Tpar = Tpars.upper_bound(t)->second;
+		}
+		dxdt[0] = Tpar.Tr * std::cos(t) + Tpar.Tshift - x[0];
+		
+		//extreme weather
+		for(auto extr = extreme.begin(); extr != extreme.end(); ++extr){
+			if( std::abs(extr->first - t) < 0.05 ){
+				dxdt[0] = dxdt[0] * extr->second;
+				break;
+			}
+		}
 
 		//compute awake pop dervatives
 		for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);
