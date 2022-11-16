@@ -12,7 +12,7 @@ const double b = 8.0 / 3.0;
 
 typedef std::vector< double> state_type;
 
-class modell {
+class Model {
 	std::vector<std::function< void(const state_type&, state_type&, double) >> func_awake;
 	std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 	double sumNperK;
@@ -21,7 +21,7 @@ class modell {
 	const double Pwake;
 	const double PwakePlusDelta;
 
-	modell(std::vector<double> & Tranges, 
+	Model(std::vector<double> & Tranges, 
 			std::vector<double> & Tmins, 
 			const double A=10, 
 			const double b=1.9, 
@@ -67,6 +67,17 @@ class modell {
 				g += 2; //step to next awake population
 			}
 	}
+
+	void operator()( const state_type &x , state_type &dxdt , double t ){
+		//compute temperature
+
+		//compute awake pop dervatives
+		for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);
+
+		//compute dormant pop derivatives
+		for(auto f = func_sleeping.begin(); f != func_sleeping.end(); f++) (*f)(x, dxdt, t);
+
+	}
 };
 
 
@@ -77,12 +88,6 @@ void model( const state_type &x , state_type &dxdt , double t )
     dxdt[2] = -b * x[2] + x[0] * x[1];
 }
 
-/*void lorenz( const state_type &x , state_type &dxdt , double t )
-{
-    dxdt[0] = sigma * ( x[1] - x[0] );
-    dxdt[1] = R * x[0] - x[1] - x[0] * x[2];
-    dxdt[2] = -b * x[2] + x[0] * x[1];
-}*/
 
 void write_model( const state_type &x , const double t )
 {
@@ -91,7 +96,6 @@ void write_model( const state_type &x , const double t )
     std::cout << std::endl;
 }
 
-// state_type = double
 typedef runge_kutta_dopri5< double > stepper_type;
 
 int main()
@@ -99,5 +103,6 @@ int main()
     state_type x = { 10.0 , 1.0 , 1.0 }; // initial conditions
     //integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
     integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
-}
+};
+
 
