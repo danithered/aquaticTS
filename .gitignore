@@ -1,0 +1,8 @@
+.Rhistory
+*.swp
+*.html
+*.pdf
+
+a.out
+aqua_cache/
+aqua_files/

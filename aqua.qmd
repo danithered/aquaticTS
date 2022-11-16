@@ -1,0 +1,428 @@
+---
+title: "Untitled"
+format: 
+  revealjs:
+    chalkboard:
+      buttons: false
+author: "Dániel Vörös"
+date: today
+echo: false
+cache: true
+fig-align: center
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, setup, include=FALSE, message=F}
+# libraries that not reload everytime
+library(geodata)
+```
+
+
+```{r, setup2, include=FALSE, message=F, cache=F}
+#libraries that reload
+library(tidyr)
+library(ggplot2)
+library(deSolve)
+```
+
+# Climate
+
+## Getting climate data
+
+-   `geodata` package for downloading CMIP6 climate data
+-   Tons of models (e.g. "CNRM-CM6-1-HR")
+-   Socio - economic Pathways: 126, 245, 370 or [585]{.underline}
+-   predictions for different time-intervals: 2021-2040, 2041-2060 or [2061-2080]{.underline}
+-   monthly resolution: minimal-, maximal temperature, precipitation
+
+---
+
+```{r load_climate_data}
+#f <- "*EUR-44*"
+#UDG.datasets(pattern = f)
+
+#bio10 <- cmip6_world("CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+biomin <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+#bioavg <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tavg", res=10, path=tempdir())
+biomax <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmax", res=10, path=tempdir())
+
+#b <- bio10$tmin01
+#bc <- crop(b, ext(-30, 50, 30, 80))
+plot(crop(biomax, ext(-11, 35, 42, 71)))
+```
+
+## In time
+
+```{r, dependson="load_climate_data"}
+#plot(biomax)
+
+#which(!is.nan(values(bio$wc2.1_30s_tmin_01)))
+#barplot(unlist(biomin[1447]))
+#barplot(unlist(biomax[1447]))
+
+
+b <- cbind( (biomin[1447]), (biomax[1447]) )
+b2 = b |> 
+  #select( !starts_with("no_A", ignore.case = F)) |> 
+  pivot_longer(cols= everything(), names_to=c("parameter", "month"), values_to = "val", names_pattern = "wc2.1_30s_(.*)_(.*)")
+
+b3 <- b2 |> pivot_wider(names_from = parameter, values_from = val)
+
+ggplot(b3, aes(x=month))+
+  geom_linerange(aes(ymin=tmin, ymax=tmax))+
+  labs(x="Month", y="Ground temperature [Celsius degree]")
+
+```
+
+## How to model temperature?
+
+-   Sinus function in literature
+
+```{r}
+func <- function(t, state, parameters) {
+  with(as.list(c(state, parameters )), {
+    Tr <- Tpar[max(which(Tpar$tfrom <= t)),"Tr"]
+    Tshift <- Tpar[max(which(Tpar$tfrom <= 0)),"Tshift"]
+    
+    dX <-  ( (Tr*cos(t)+Tshift)  -X)
+    w = t > et$min & t < et$max
+    if( any(w) ) {
+      #cat(paste(round(t, 3), round(X, 2), round(dX, 2), "\n") )
+      dX <- dX * et[w, "times"]
+    }
+    list(dX, Tr=Tr)
+  })
+}
+```
+
+```{r}
+state <- c(X = 10)
+times <- seq(0, 20, by = 0.01)
+no_errors = 0
+length=0.1
+Tpar <- data.frame(tfrom=0, Tr = 20, Tshift = 10)
+```
+
+```{r eval_ode}
+at = runif(no_errors, 0, max(times))
+a = rnorm(length(at), sd=6)
+parameters <- list(et = data.frame(min=at-length/2, max=at+length/2, times=a), 
+                   Tpar = Tpar)
+
+out <- ode(y = state, times = times, func = func, parms = parameters)
+
+ggplot(as.data.frame(out), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")
+
+```
+
+
+## Interannual variations
+
+```{r}
+state <- c(X = 10)
+times <- seq(0, 50, by = 0.01)
+no_errors = 0
+length=0.1
+Tpar <- data.frame(tfrom=6*0:10, Tr = rnorm(11, mean=20, sd=2), Tshift = rnorm(11, mean=10, sd=1))
+```
+
+```{r, cache=F}
+at = runif(no_errors, 0, max(times))
+a = rnorm(length(at), sd=6)
+parameters <- list(et = data.frame(min=at-length/2, max=at+length/2, times=a), 
+                   Tpar = Tpar)
+
+out <- ode(y = state, times = times, func = func, parms = parameters)
+
+ggplot(as.data.frame(out), aes(x=time, y=X, color=Tr))+
+  geom_line()+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none")
+
+```
+
+## Extreme temperature deviations
+
+```{r}
+state <- c(X = 10)
+times <- seq(0, 20, by = 0.01)
+no_errors = 4
+length=0.1
+Tpar <- data.frame(tfrom=0, Tr = 20, Tshift = 10)
+```
+
+```{r}
+set.seed(44)
+#set.seed(85)
+
+at = runif(no_errors, 0, max(times))
+a = rnorm(length(at), sd=6)
+parameters <- list(et = data.frame(min=at-length/2, max=at+length/2, times=a), 
+                   Tpar = Tpar)
+
+out <- ode(y = state, times = times, func = func, parms = parameters)
+
+ggplot(as.data.frame(out), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")
+```
+
+# Model
+
+## Equations
+
+$$\frac{dT}{dt}= \dots \\
+\frac{dN_g}{dt}=N_g r(T) \left( 1-\frac{\sum_{i=1}^{G}N_i}{K} \right) - N_g p_{sleep} + D_g p_{wake}\\
+\frac{dD_g}{dt}= N_g p_{sleep} - D_g p_{wake} - D_g \delta$$
+
+Fairy tale: once upon a time, there has been a pool of quasispecies with different thermo-reaction curves, who randomly fell asleep and woke up...
+
+```{=html}
+<!--
+$$x(T)=P_{opt} \frac{(T-T_{min})(T-T_{max})}{(T-T_{min})(T-T_{max})-(T-T_{opt})^2}$$
+-->
+```
+
+```{r, eval=F}
+Popt=1
+Tmin=10
+Trange=30
+Topt=10
+Tmax=Tmin+Trange
+
+curve(Popt * ( (T-Tmin)*(T-Tmax) ) * ( (T-Tmin)*(T-Tmax)-(T-Topt)^2 ), xname="T", from=Tmin, to=Tmax)
+abline(h=0)
+gorbe <- function(T) return(Popt * ( (T-Tmin)*(T-Tmax) ) * ( (T-Tmin)*(T-Tmax)-(T-Topt)^2 ))
+```
+
+```{=html}
+<!--
+$$x(T, M)=e^{I} M^S e^{E_a \frac{T_0-T+T_{0K}}{k_B (T+T_{0K}) T_0 }}$$ $$x(T, M)=M^S e^{I + E_a \frac{T_0-T+T_{0K}}{k_B (T+T_{0K}) T_0 }}$$ 
+-->
+```
+
+```{r, eval=F}
+Sx    = -0.31;          # rate specific scaling coefficient
+Ix    = -16.54;         # rate specific constant 
+Eax   = -0.69;          # activation energy (eV)
+T0K   = 273.15;         # 0 degres in Kalvin
+Boltz = 8.617*10^(-5);  # Boltzmann constant (eV/K)
+T0    = 293.15;         # normalization temperature (K)
+
+
+x2<-function(Temp,My){
+  x2= exp(Ix)*My^Sx*exp(Eax*(T0-(Temp+T0K))/(Boltz*(Temp+T0K)*T0));
+}
+
+
+curve(x2(x, 1), from=10, to=30)
+```
+
+```{r, eval=F}
+curve(gorbe(x) - x2(x, 1) , from=10, to=30)
+curve(x2(x, 1), add=T)
+
+```
+
+```{r, eval=F}
+Trange=50
+Tmin=10
+a=1
+b=0.25
+Tmax=Tmin+Trange
+
+curve(a*exp(b*T)*(Tmax-T)*(T-Tmin), from=Tmin, to=Tmax, xname="T", sub=paste("a", a, "b", b), lwd=2)
+```
+
+```{r, eval=F}
+#b= 10/Trange
+
+Trange=50*2
+Tmin=10
+a=1
+b=10/Trange
+#b=1.9
+Tmax=Tmin+Trange
+
+par(oma=c(0,0,0,3))
+xxx <- curve(a*exp(b*T)*(Tmax-T)*(T-Tmin), from=Tmin, to=Tmax, xname="T", sub=paste("a", a, "b", b), lwd=2)
+par(new=T)
+curve(a*exp(b*T), add=T, xname="T", col="red", axes=F)
+axis(4, col="red")
+par(new=T)
+curve((Tmax-T)*(T-Tmin), xname="T", add=T, col="blue", axes=F)
+axis(4, col="blue", outer=T)
+
+sprintf("%e", max(xxx$y))
+```
+
+```{r, eval=F}
+Trange=11
+Tmin=10
+a=1
+#b=100/Trange
+b=1.9
+Tmax=Tmin+Trange
+
+par(oma=c(0,0,0,3))
+xxx <- curve(a*exp(b*(T-Tmin)/Trange)*(Tmax-T)*(T-Tmin), from=Tmin, to=Tmax, xname="T", sub=paste("a", a, "b", b), lwd=2)
+par(new=T)
+curve(a*exp(b*T), add=T, xname="T", col="red", axes=F)
+axis(4, col="red")
+par(new=T)
+curve((Tmax-T)*(T-Tmin), xname="T", add=T, col="blue", axes=F)
+axis(4, col="blue", outer=T)
+
+sprintf("%e", max(xxx$y))
+```
+
+```{r, eval=F}
+plot(c(1,25,50,100, 200), c(8e-1,5e2, 2e3, 8e3, 3e4), xlab="Trange", ylab="max")
+```
+
+```{=html}
+<!--
+$$-(T_{range} e^{b \frac{T-T_{min}}{T_{range}}} (b^2 (T_{min} - T) (T_{min} + T_{range} - T) + b T_{range} (2 T_{min} + T_{range} - 2 T) + 2 T_{range}^2))/b^3 + c$$
+-->
+```
+
+## Replication rate
+
+$$r(T) = A e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
+
+$$c(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$ 
+
+```{r}
+ff <- function(T, Tmin, Tmax, Trange, b, compensation){
+  exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+}
+ff2 <- function(T, Tmin, Tmax, Trange, b, compensation){
+  exp(b/Trange)^(T-Tmin) * (Tmax - T) * (T - Tmin) / compensation
+}
+```
+
+## Temperature dependence
+
+```{r}
+Trange=11
+Tmin=10*2
+A=10
+b=1.9
+
+```
+
+```{r}
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin,Tmax), geom="area", fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin-Trange/10,Tmax+Trange/10), color="blue")+
+  labs(x="Temperature", y = "Replication rate")
+#curve(ff(T, Tmin, Tmax, Trange, b, compensation), xname="T", from=Tmin-Trange/10, to=Tmax+Trange/10)
+#abline(h=0)
+```
+
+## Changing parameters
+
+::: {layout="[[1,1], [1,1]]"}
+
+```{r}
+Trange=10
+Tmin=10
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin,Tmax), geom="area", fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin-Trange/10,Tmax+Trange/10), color="blue")+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+```{r}
+Trange=20
+Tmin=10
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin,Tmax), geom="area", fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin-Trange/10,Tmax+Trange/10), color="blue")+
+  labs(x="Temperature", y = "Replication rate", 
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+```{r}
+Trange=10
+Tmin=20
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin,Tmax), geom="area", fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin-Trange/10,Tmax+Trange/10), color="blue")+
+  labs(x="Temperature", y = "Replication rate", 
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+```{r}
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin,Tmax), geom="area", fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin-Trange/10,Tmax+Trange/10), color="blue")+
+  labs(x="Temperature", y = "Replication rate", 
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+:::
+
+
+
+```{r, eval=F}
+ff3 <- function(diff1, diff2, base, compensation){
+  base^diff1 * diff2 * diff1 / compensation
+}
+
+Trange=11
+Tmin=10*2
+A=1
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+base <- exp(b/Trange)
+
+curve(ff3(diff1 = T-Tmin, diff2=Tmax-T, base, compensation), xname="T", from=Tmin-Trange/10, to=Tmax+Trange/10)
+abline(h=0)
+
+#spared: -, /
+```
+
+```{r}
+#A=-b
+#B=b*(Tmax+Tmin)/2-2
+#C=Tmax+Tmin-b*Tmax*Tmin
+#o = (-B-sqrt(B^2-4*A*C))/(2*A)
+#abline(v=o)
+```
+
