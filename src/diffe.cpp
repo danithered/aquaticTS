@@ -3,6 +3,7 @@
 #include <map>
 #include <boost/numeric/odeint.hpp>
 #include <boost/array.hpp>
+#include <memory>
 #include <randomgen.h>
 
 using namespace std;
@@ -143,6 +144,44 @@ class Model {
 		}
 };
 
+// better Reprter class than next one
+class Reporter2 {
+	private:
+		std::shared_ptr<std::ofstream> file;
+		std::shared_ptr<bool> started;
+
+	public:
+		Reporter2(const char *filename): file( new std::ofstream(filename) ){
+			*started = false;
+			if(!file->is_open()){
+				std::cerr << "File is not open: " << filename << std::endl;
+			}
+		}
+
+
+		~Reporter2(){
+			//file->close();
+			//delete file;
+		}
+
+		void operator() (const state_type &x, const double t){
+			// add header if neccesary
+			if(!*started){
+				*file << "time\ttemperature";
+				for(unsigned int type = 1; type < x.size(); type++) *file << "\ttype" << type;;
+				*file << std::endl;
+				*started = true;
+			}
+
+			// write data
+			*file << t;
+			for(auto & val : x) *file << '\t' << val;
+			*file << std::endl;
+
+			// flush
+			file->flush();
+		}
+};
 
 class Reporter {
 	private:
@@ -185,8 +224,8 @@ class Reporter {
 int main()
 {
 	// model parameters
-	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0; //settings
-																	      //
+	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, mean_Tshift = 5, mean_Tr = 10; //settings
+																	      
 	// inic rng
 	randomszam_inic(154, r);
 
@@ -215,6 +254,7 @@ int main()
 
 	// inic model
 	Model m(Tranges, Tmins);
+	m.setClimate(mean_Tshift, mean_Tr);
 	
 	// use ode
 	//integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
