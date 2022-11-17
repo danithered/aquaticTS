@@ -85,19 +85,26 @@ public:
 			}
 	}
 
+	void setClimate(double mean_Tshift, double mean_Tr, double sd_Tshift, double sd_Tr, double length){
+	}
+
+	void setExtreme(unsigned int no, double until){
+
+	}
+
 	void operator()( const state_type &x , state_type &dxdt , double t ){
 		//compute temperature
 		//unsigned int tr = 0;
 		//for(tr = Tr_times.size(); tr != 0 && Tr_times[tr] > t; --tr){}
 		//dxdt[0] = Tr[tr] * std::cos(t) + Tshift[tr] - x[0];
 		
-		TempParams &Tpar = Tpars.begin()->second;
+		TempParams *Tpar = &(Tpars.begin()->second);
 		if(Tpars.size() > 1) {
 			double tcopy = t;
 			while(tcopy > Tpars.rbegin()->first) tcopy -= Tpars.rbegin()->first;
-			TempParams &Tpar = Tpars.upper_bound(t)->second;
+			Tpar = &(Tpars.upper_bound(t)->second);
 		}
-		dxdt[0] = Tpar.Tr * std::cos(t) + Tpar.Tshift - x[0];
+		dxdt[0] = Tpar->Tr * std::cos(t) + Tpar->Tshift - x[0];
 		
 		//extreme weather
 		for(auto extr = extreme.begin(); extr != extreme.end(); ++extr){
@@ -136,9 +143,12 @@ typedef runge_kutta_dopri5< double > stepper_type;
 
 int main()
 {
+	std::vector<double> d;
+	Model m(d, d);
     state_type x = { 10.0 , 1.0 , 1.0 }; // initial conditions
     //integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
-    integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
+    //integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
+    integrate_const( runge_kutta4< state_type >(), m , x , 0.0 , 25.0 , 0.1 , write_model );
 };
 
 

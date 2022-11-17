@@ -3,6 +3,9 @@
 *.html
 *.pdf
 
+simulation
 a.out
 aqua_cache/
 aqua_files/
+src/obj/
+
