@@ -37,7 +37,10 @@ class Model {
 		
 		std::map<double, double> extreme;
 
+
 	public:
+		Model(const Model& orig): K(orig.K), Psleep(orig.Psleep), Pwake(orig.Pwake), PwakePlusDelta(orig.PwakePlusDelta) {std::cerr << "Copy constructor called" << std::endl;}
+
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
 				const double A=10, 
@@ -219,6 +222,24 @@ class Reporter {
 		}
 };
 
+//[ ode_wrapper
+class ode_wrapper
+{
+    Model *object;
+
+public:
+
+    ode_wrapper(Model *obj) : object( obj ) { }
+
+    template< class State , class Deriv , class Time >
+    void operator()( const State &x , Deriv &dxdt , Time t )
+    {
+        object->operator()( x , dxdt , t );
+	//(*this.*inic_out)();
+    }
+};
+
+
 //typedef runge_kutta_dopri5< double > stepper_type;
 
 int main()
@@ -234,7 +255,7 @@ int main()
 	Reporter write(output);
 	
      	// inic output file for model variables
-	std::fstream output_types("types.tsv");
+	std::ofstream output_types("types.tsv");
 	output_types << "type\tTrange\tTmin" << std::endl; // write header 
 	unsigned int type_counter = 0;
 							   
@@ -255,11 +276,12 @@ int main()
 	// inic model
 	Model m(Tranges, Tmins);
 	m.setClimate(mean_Tshift, mean_Tr);
+	ode_wrapper mod(&m);
 	
 	// use ode
 	//integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
 	//integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
-	integrate_const( runge_kutta4< state_type >(), m , x , 0.0 , 25.0 , 0.1 , write  );
+	integrate_const( runge_kutta4< state_type >(), mod , x , 0.0 , 25.0 , 0.1 , write  );
 
 
 	//close rng
