@@ -98,8 +98,20 @@ public:
 		}
 	}
 
-	void setExtreme(unsigned int no, double until){
+	void setExtreme(unsigned int no, double until, double sd=1){
+		std::vector<double> timepoints;
+		double timepoint;
 
+		while(no--){
+			timepoint = gsl_rng_uniform(r)*until;
+			for(auto point = timepoints.begin(); point != timepoints.end(); ++point){
+				if( std::abs(timepoint - *point) < 0.025 ){
+					timepoint = gsl_rng_uniform(r)*until;
+					point = timepoints.begin();
+				}
+			}
+			extreme.emplace(timepoint, gsl_ran_gaussian(r, sd));
+		}
 	}
 
 	void operator()( const state_type &x , state_type &dxdt , double t ){
