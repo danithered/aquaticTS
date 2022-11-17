@@ -2,6 +2,7 @@
 #include <map>
 #include <boost/numeric/odeint.hpp>
 #include <boost/array.hpp>
+#include <randomgen.h>
 
 using namespace std;
 using namespace boost::numeric::odeint;
@@ -143,12 +144,18 @@ typedef runge_kutta_dopri5< double > stepper_type;
 
 int main()
 {
+	randomszam_inic(154, r);
+
 	std::vector<double> d;
 	Model m(d, d);
-    state_type x = { 10.0 , 1.0 , 1.0 }; // initial conditions
-    //integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
-    //integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
-    integrate_const( runge_kutta4< state_type >(), m , x , 0.0 , 25.0 , 0.1 , write_model );
+	state_type x = { 10.0 , 1.0 , 1.0 }; // initial conditions
+	//integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
+	//integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
+	integrate_const( runge_kutta4< state_type >(), m , x , 0.0 , 25.0 , 0.1 , write_model );
+
+
+	//close rng
+	gsl_rng_free(r);
 };
 
 

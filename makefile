@@ -10,12 +10,12 @@ C=gcc
 CFLAGS=-I$(IDIR) `pkg-config --cflags gsl` -ggdb -fexceptions -Wall -pg -no-pie # for testing
 #CFLAGS=-I$(IDIR) `pkg-config --cflags gsl` -Ofast # for stuff
 
-LIBS= -lboost_system
+LIBS= -lboost_system -lm `pkg-config --libs gsl` -fopenmp
 
-_DEPS = 
+_DEPS = randomgen.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = diffe.o
+_OBJ = diffe.o randomgen.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
