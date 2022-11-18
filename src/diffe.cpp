@@ -55,14 +55,15 @@ class Model {
 				unsigned int g = 1; //first is temperature (N[0] = T)
 
 				//add functions
-				for(auto Trangei = Tranges.begin(); Trangei != Tranges.end(); ++Trangei) for(auto Tmini = Tmins.begin(); Tmini != Tmins.end(); ++Tmini){
+				//for(auto Trangei = Tranges.begin(); Trangei != Tranges.end(); ++Trangei) for(auto Tmini = Tmins.begin(); Tmini != Tmins.end(); ++Tmini){
+				for(unsigned int i = 0; i < Tranges.size(); ++i){
 					/* N[g] - awake population
 					 * N[g+1] - dormant population
 					 * N[ 0 ] - temperature
 					 * */ 
 
 					//compute genotype specific variables
-					const double Tmin = *Tmini, Trange = *Trangei, Tmax = Trange + Tmin;
+					const double Tmin = Tmins[i], Trange = Tranges[i], Tmax = Trange + Tmin;
 					const double base = std::exp(b / Trange);
 					const double compensation = (2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3) / A;
 					const unsigned int gplus = g+1; //pos of dormant stage
@@ -222,7 +223,11 @@ class Reporter {
 		}
 };
 
-//[ ode_wrapper
+void dummy( const state_type &x , state_type &dxdt , double t ){
+	for(auto & val : dxdt) val = 0;
+}
+
+//ode_wrapper
 class ode_wrapper
 {
     Model *object;
@@ -231,21 +236,19 @@ public:
 
     ode_wrapper(Model *obj) : object( obj ) { }
 
-    template< class State , class Deriv , class Time >
-    void operator()( const State &x , Deriv &dxdt , Time t )
-    {
+    void operator()( const state_type &x , state_type &dxdt , double t ){
         object->operator()( x , dxdt , t );
 	//(*this.*inic_out)();
+	//dummy(x, dxdt, t);
     }
 };
-
 
 //typedef runge_kutta_dopri5< double > stepper_type;
 
 int main()
 {
 	// model parameters
-	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, mean_Tshift = 5, mean_Tr = 10; //settings
+	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 10.0, inicDormant = 10.0, mean_Tshift = 5, mean_Tr = 10; //settings
 																	      
 	// inic rng
 	randomszam_inic(154, r);

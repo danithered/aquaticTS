@@ -1,5 +1,6 @@
 ---
-title: "Untitled"
+title: "Toy model"
+subtitle: "Temperature dependent dynamics in aquatic communities"
 format: 
   revealjs:
     chalkboard:
@@ -18,7 +19,6 @@ editor_options:
 library(geodata)
 ```
 
-
 ```{r, setup2, include=FALSE, message=F, cache=F}
 #libraries that reload
 library(tidyr)
@@ -36,7 +36,7 @@ library(deSolve)
 -   predictions for different time-intervals: 2021-2040, 2041-2060 or [2061-2080]{.underline}
 -   monthly resolution: minimal-, maximal temperature, precipitation
 
----
+------------------------------------------------------------------------
 
 ```{r load_climate_data}
 #f <- "*EUR-44*"
@@ -118,7 +118,6 @@ ggplot(as.data.frame(out), aes(x=time, y=X))+
 
 ```
 
-
 ## Interannual variations
 
 ```{r}
@@ -185,7 +184,6 @@ Fairy tale: once upon a time, there has been a pool of quasispecies with differe
 $$x(T)=P_{opt} \frac{(T-T_{min})(T-T_{max})}{(T-T_{min})(T-T_{max})-(T-T_{opt})^2}$$
 -->
 ```
-
 ```{r, eval=F}
 Popt=1
 Tmin=10
@@ -203,7 +201,6 @@ gorbe <- function(T) return(Popt * ( (T-Tmin)*(T-Tmax) ) * ( (T-Tmin)*(T-Tmax)-(
 $$x(T, M)=e^{I} M^S e^{E_a \frac{T_0-T+T_{0K}}{k_B (T+T_{0K}) T_0 }}$$ $$x(T, M)=M^S e^{I + E_a \frac{T_0-T+T_{0K}}{k_B (T+T_{0K}) T_0 }}$$ 
 -->
 ```
-
 ```{r, eval=F}
 Sx    = -0.31;          # rate specific scaling coefficient
 Ix    = -16.54;         # rate specific constant 
@@ -288,12 +285,11 @@ plot(c(1,25,50,100, 200), c(8e-1,5e2, 2e3, 8e3, 3e4), xlab="Trange", ylab="max")
 $$-(T_{range} e^{b \frac{T-T_{min}}{T_{range}}} (b^2 (T_{min} - T) (T_{min} + T_{range} - T) + b T_{range} (2 T_{min} + T_{range} - 2 T) + 2 T_{range}^2))/b^3 + c$$
 -->
 ```
-
 ## Replication rate
 
 $$r(T) = A e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
 
-$$c(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$ 
+$$c(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
 
 ```{r}
 ff <- function(T, Tmin, Tmax, Trange, b, compensation){
@@ -329,7 +325,6 @@ ggplot()+
 ## Changing parameters
 
 ::: {layout="[[1,1], [1,1]]"}
-
 ```{r}
 Trange=10
 Tmin=10
@@ -393,10 +388,7 @@ ggplot()+
        title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
        )
 ```
-
 :::
-
-
 
 ```{r, eval=F}
 ff3 <- function(diff1, diff2, base, compensation){
@@ -424,5 +416,125 @@ abline(h=0)
 #C=Tmax+Tmin-b*Tmax*Tmin
 #o = (-B-sqrt(B^2-4*A*C))/(2*A)
 #abline(v=o)
+```
+
+# Questions
+
+## What parameters should it use?
+
+|             | Parameter                               | Value |
+|-------------|-----------------------------------------|-------|
+| $K$         | Carrying capacity                       | 100   |
+| $P_{sleep}$ | Rate of dormancy                        | 0.1   |
+| $P_{wake}$  | Rate of dormants waking up              | 0.1   |
+| $\delta$    | Death rate of dormants                  | 0.1   |
+| $T_{min}$   | Minimal breeding temperature            | 10-20 |
+| $T_{range}$ | Width of temperature niche              | 5-10  |
+| $N_0$       | Initial number of awaken per genotype   | 10    |
+| $D_0$       | Initial number of dormants per genotype | 20    |
+
+## Shape of temperature response curve
+
+::: panel-tabset
+## Current
+
+```{r}
+Trange=10
+Tmin=10
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+              xlim = c(Tmin-Trange/10,Tmax+Trange/10), 
+              color="blue")+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(b == .(b))))
+
+```
+
+## small $b$
+
+```{r}
+Trange=10
+Tmin=10
+A=10
+b=1.2
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+              xlim = c(Tmin-Trange/10,Tmax+Trange/10), 
+              color="blue")+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(b == .(b))))
+
+```
+
+## big $b$
+
+```{r}
+Trange=10
+Tmin=10
+A=10
+b=2.5
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+              xlim = c(Tmin-Trange/10,Tmax+Trange/10), 
+              color="blue")+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(b == .(b))))
+
+```
+:::
+
+## Temperature variation
+
+-   [Control with none]{.underline}
+
+-   Seasonal variation?
+
+    -   Trend?
+    -   [Random?]{.underline}
+
+-   Extreme events? 0.5 per year?
+
+-   Both?
+
+---
+
+```{r}
+outp <- read.table("../output.tsv", header=T)
+#str(outp)
+table = outp |> pivot_longer(cols=starts_with("type"), names_to = "type", values_to = "number")
+#str(table)
+p1 <- ggplot(table, aes(x=time, y=number))+
+  geom_line(aes(color=type))+
+  theme(legend.position = "none", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+p2 <- ggplot(table, aes(x=time, y=temperature))+
+  geom_line()+
+  theme(legend.position = "none")
+
+#gridExtra::grid.arrange(p1, p2, ncol=1, )
+cowplot::plot_grid(p1, p2, align = "v", ncol = 1)
 ```
 
