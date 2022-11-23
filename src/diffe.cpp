@@ -139,6 +139,11 @@ class Model {
 				}
 			}
 
+			//compute sumN
+			double sumN = 0.0;
+			for(unsigned int i = 1, max = x.size(); i < max; i += 2) sumN += x[i];
+			sumNperK = sumN / K;
+
 			//compute awake pop dervatives
 			for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);
 
@@ -223,9 +228,6 @@ class Reporter {
 		}
 };
 
-void dummy( const state_type &x , state_type &dxdt , double t ){
-	for(auto & val : dxdt) val = 0;
-}
 
 //ode_wrapper
 class ode_wrapper
@@ -248,7 +250,7 @@ public:
 int main()
 {
 	// model parameters
-	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 10.0, inicDormant = 10.0, mean_Tshift = 5, mean_Tr = 10; //settings
+	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 10.0, inicDormant = 10.0, mean_Tshift = 10, mean_Tr = 20; //settings
 																	      
 	// inic rng
 	randomszam_inic(154, r);
