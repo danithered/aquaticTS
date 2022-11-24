@@ -174,8 +174,8 @@ ggplot(as.data.frame(out), aes(x=time, y=X))+
 ## Equations
 
 $$\frac{dT}{dt}= \dots \\
-\frac{dN_g}{dt}=N_g r(T) \left( 1-\frac{\sum_{i=1}^{G}N_i}{K} \right) - N_g p_{sleep} + D_g p_{wake}\\
-\frac{dD_g}{dt}= N_g p_{sleep} - D_g p_{wake} - D_g \delta$$
+\frac{dN_g}{dt}=N_g r(T) \left( 1-\frac{\sum_{i=1}^{G}N_i}{K} \right) - N_g t_{sleep}(T) + D_g t_{wake}(T)\\
+\frac{dD_g}{dt}= N_g t_{sleep}(T) - D_g t_{wake}(T) - D_g \delta$$
 
 Fairy tale: once upon a time, there has been a pool of quasispecies with different thermo-reaction curves, who randomly fell asleep and woke up...
 
@@ -418,6 +418,34 @@ abline(h=0)
 #abline(v=o)
 ```
 
+## Temperature depedence of $P_{sleep}$
+
+::: {layout="[[3,-0.5,3], [3, -0.5,3]]"}
+```{r}
+ggplot()+
+  geom_function(fun=dnorm, xlim=c(-3,3), linewidth=3)+
+  theme(axis.text = element_blank())+
+  labs(x="Temperature", y= bquote(P[sleep]))
+```
+
+```{r}
+ggplot()+
+  geom_function(fun=function(x) 1/(1+exp(-x)), xlim=c(-5,5), linewidth=3)+
+  theme(axis.text = element_blank())+
+  labs(x="Temperature", y= bquote(P[sleep]))
+```
+
+![](dryfish.jpg)
+
+![](Dragonfly.jpg)
+
+:::
+
+## Temperature depedence of dormancy
+
+$$P_{sleep} = \frac{1}{1+e^{-T+T_{max}-T_{range}/2 }}$$
+
+
 # Questions
 
 ## What parameters should it use?
@@ -519,10 +547,10 @@ ggplot()+
 
 -   Both?
 
----
+------------------------------------------------------------------------
 
 ```{r}
-outp <- read.table("../output.tsv", header=T)
+outp <- read.table("../output.tsv", header=TRUE)
 #str(outp)
 table = outp |> pivot_longer(cols=starts_with("type"), names_to = "type", values_to = "number")
 #str(table)
@@ -537,4 +565,3 @@ p2 <- ggplot(table, aes(x=time, y=temperature))+
 #gridExtra::grid.arrange(p1, p2, ncol=1, )
 cowplot::plot_grid(p1, p2, align = "v", ncol = 1)
 ```
-
