@@ -510,9 +510,9 @@ ggplot()+
 ::: {.column width="45%"}
 ```{r}
 ggplot()+
-  geom_function(fun=dnorm, xlim=c(-3,3), linewidth=3)+
+  geom_function(fun=function(x) dnorm(0) - dnorm(x), xlim=c(-3,3), linewidth=3)+
   theme(axis.text = element_blank())+
-  labs(x="Temperature", y= bquote(P[sleep]))
+  labs(x="Temperature", y= bquote(t[sleep]))
 ```
 
 ![](dryfish.jpg){fig-align="center" width="50%"}
@@ -524,9 +524,9 @@ ggplot()+
 ::: {.column width="45%" align="right"}
 ```{r}
 ggplot()+
-  geom_function(fun=function(x) 1/(1+exp(-x)), xlim=c(-5,5), linewidth=3)+
+  geom_function(fun=function(x) 1/(1+exp(x)), xlim=c(-5,5), linewidth=3)+
   theme(axis.text = element_blank())+
-  labs(x="Temperature", y= bquote(P[sleep]))
+  labs(x="Temperature", y= bquote(ts[sleep]))
 ```
 
 ![](Dragonfly.jpg)
@@ -535,27 +535,28 @@ ggplot()+
 
 ## Temperature depedence of dormancy
 
-$$t_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
-
-$$t_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
+$$t_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
+$$t_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
 
 ```{r}
 #| fig-align: center
 Tmin=15
 Trange = 10
 Tmax= Tmin + Trange
+tsleep <- function(x, Tmin, Tmax, Trange) 0.8/(1+exp(x-Tmax+Trange/2)) + 0.1
+twake <- function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1
 ggplot()+
-  stat_function(fun=function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1,
+  stat_function(fun=tsleep,
                 geom="area",
                 fill= "lightgreen",
                 args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
                 xlim=c(Tmin,Tmax),
                 linewidth=3)+
-  geom_function(fun=function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1,
+  geom_function(fun=tsleep,
                 args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
                 xlim=c(Tmin-Trange/10,Tmax+Trange/10),
                 linewidth=3)+
-  geom_function(fun=function(x, Tmin, Tmax, Trange) 0.8/(1+exp(x-Tmax+Trange/2)) + 0.1,
+  geom_function(fun=twake,
                 args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
                 xlim=c(Tmin-Trange/10,Tmax+Trange/10),
                 linewidth=1, color="grey", linetype="dashed" )+
@@ -681,10 +682,12 @@ outp <- read.table("../output.tsv", header=T)
 table = outp |> 
   pivot_longer(cols=starts_with("N") | starts_with("D"), names_to = "type", values_to = "number") #|>
   # pivot_wider(names_from = type, )
+table$dormancy <- substr(table$type, 1, 1)
+table$type <- substr(table$type, 2, nchar(table$type))
 table[table$number < 0,]$number <- 0
 #str(table)
 p1 <- ggplot(table, aes(x=time, y=number))+
-  geom_line(aes(color=type))+
+  geom_line(aes(color=type, linetype = dormancy))+
   theme(legend.position = "none", 
         axis.title.x = element_blank(), 
         #axis.text = element_blank(), 
