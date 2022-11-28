@@ -24,6 +24,7 @@ library(geodata)
 library(tidyr)
 library(ggplot2)
 library(deSolve)
+library(RColorBrewer)
 ```
 
 # Climate
@@ -171,11 +172,11 @@ ggplot(as.data.frame(out), aes(x=time, y=X))+
 
 # Model
 
-## Equations
+## Equations - version 1
 
 $$\frac{dT}{dt}= \dots \\
-\frac{dN_g}{dt}=N_g r(T) \left( 1-\frac{\sum_{i=1}^{G}N_i}{K} \right) - N_g t_{sleep}(T) + D_g t_{wake}(T)\\
-\frac{dD_g}{dt}= N_g t_{sleep}(T) - D_g t_{wake}(T) - D_g \delta$$
+\frac{dN_g}{dt}=N_g r(T) \left( 1-\frac{\sum_{i=1}^{G}N_i}{K} \right) - N_g t_{sleep} + D_g t_{wake}\\
+\frac{dD_g}{dt}= N_g t_{sleep} - D_g t_{wake} - D_g \delta$$
 
 Fairy tale: once upon a time, there has been a pool of quasispecies with different thermo-reaction curves, who randomly fell asleep and woke up...
 
@@ -395,8 +396,8 @@ ff3 <- function(diff1, diff2, base, compensation){
   base^diff1 * diff2 * diff1 / compensation
 }
 
-Trange=11
-Tmin=10*2
+Trange=5
+Tmin=10
 A=1
 b=1.9
 
@@ -418,9 +419,95 @@ abline(h=0)
 #abline(v=o)
 ```
 
-## Temperature depedence of $P_{sleep}$
+## Problem {.smaller}
 
-::: {layout="[[3,-0.5,3], [3, -0.5,3]]"}
+$$\frac{dN_g}{dt}=N_g r(T) \left( 1-\frac{\sum_{i=1}^{G}N_i}{K} \right) - \dots$$ 
+
+::: panel-tabset
+
+## matrix
+
+|         |            |            |            |
+|---------|------------|------------|------------|
+|         | $r(T) > 0$ | $r(T) = 0$ | $r(T) < 0$ |
+| $N = 0$ | ++         | 0          | \-         |
+| $N < K$ | \+         | 0          | \-         |
+| $N = K$ | 0          | 0          | \- (0!)    |
+| $N > K$ | \-         | \- (0!)    | \-- (+!)   |
+
+## table
+
+| $r(T)$ | $1-\frac{\sum N}{K}$ | $\frac{dN_g}{dt}$ |
+|:------:|:--------------------:|:-----------------:|
+|   \+   |          \+          |        \+         |
+|   \+   |          \-          |        \-         |
+|   \+   |          0           |         0         |
+|   \-   |          \+          |        \-         |
+|   \-   |          \-          |      \- (+!)      |
+|   \-   |          0           |      \- (0!)      |
+|   0    |          \+          |         0         |
+|   0    |          \-          |      \- (0!)      |
+|   0    |          0           |         0         |
+
+:::
+
+## Solution?
+
+ <!--# fgfd
+ $$\frac{dN_g}{dt}=N_g \frac{K}{\sum N} r(T) - \dots$$
+
+But:
+
+-   at $N \approx 0$ $\frac{K}{\sum N}r(T) \to \pm \infty$, while $(1 - \frac{\sum N}{K})r(T) \to r(T)$
+-   if $r(T) < 0$ and $\sum N \to \infty$ $\frac{K}{\sum N}r(T) \to -0$
+-->
+
+Instead of 
+
+$$r(T)\left( 1- \frac{\sum N}{K}\right) = r(T) - r(T)\frac{\sum N}{K}$$ 
+
+we should use
+
+$$r(T) - \left | r(T)\frac{\sum N}{K} \right | $$
+
+## Temperature curves ~ $\sum N / K$
+
+```{r}
+#| fig-asp: 0.8
+#| fig-align: center
+#| out-width: 100%
+ff2 <- function(T, Tmin, Tmax, Trange, b, compensation, sumNperK = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r - abs(r*sumNperK)
+}
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  scale_colour_manual(values=cols, labels=c("2K", "K", "0", "K/2"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 0), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 0.5), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 1), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 2), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )+
+  theme(legend.position = "top")
+```
+
+## Temperature depedence of $t_{sleep}$
+
+::: columns
+::: {.column width="45%"}
 ```{r}
 ggplot()+
   geom_function(fun=dnorm, xlim=c(-3,3), linewidth=3)+
@@ -428,6 +515,13 @@ ggplot()+
   labs(x="Temperature", y= bquote(P[sleep]))
 ```
 
+![](dryfish.jpg){fig-align="center" width="50%"}
+:::
+
+::: {.column width="10%"}
+:::
+
+::: {.column width="45%" align="right"}
 ```{r}
 ggplot()+
   geom_function(fun=function(x) 1/(1+exp(-x)), xlim=c(-5,5), linewidth=3)+
@@ -435,31 +529,63 @@ ggplot()+
   labs(x="Temperature", y= bquote(P[sleep]))
 ```
 
-![](dryfish.jpg)
-
 ![](Dragonfly.jpg)
-
+:::
 :::
 
 ## Temperature depedence of dormancy
 
-$$P_{sleep} = \frac{1}{1+e^{-T+T_{max}-T_{range}/2 }}$$
+$$t_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
+
+$$t_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
+
+```{r}
+#| fig-align: center
+Tmin=15
+Trange = 10
+Tmax= Tmin + Trange
+ggplot()+
+  stat_function(fun=function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1,
+                geom="area",
+                fill= "lightgreen",
+                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                xlim=c(Tmin,Tmax),
+                linewidth=3)+
+  geom_function(fun=function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1,
+                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                xlim=c(Tmin-Trange/10,Tmax+Trange/10),
+                linewidth=3)+
+  geom_function(fun=function(x, Tmin, Tmax, Trange) 0.8/(1+exp(x-Tmax+Trange/2)) + 0.1,
+                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                xlim=c(Tmin-Trange/10,Tmax+Trange/10),
+                linewidth=1, color="grey", linetype="dashed" )+
+  coord_cartesian(ylim=c(0,1))+
+  #theme(axis.text = element_blank())+
+  labs(x="Temperature", y= bquote(P[sleep]))
+```
+
+
+## Model - version 2
+
+$$\frac{dT}{dt}= \dots \\
+\frac{dN_g}{dt}=N_g \left( r(T) - \left | r(T) \frac{\sum_{i=1}^{G}N_i}{K} \right | \right) - N_g t_{sleep}(T) + D_g t_{wake}(T)\\
+\frac{dD_g}{dt}= N_g t_{sleep}(T) - D_g t_{wake}(T) - D_g \delta$$
 
 
 # Questions
 
 ## What parameters should it use?
 
-|             | Parameter                               | Value |
-|-------------|-----------------------------------------|-------|
-| $K$         | Carrying capacity                       | 100   |
-| $P_{sleep}$ | Rate of dormancy                        | 0.1   |
-| $P_{wake}$  | Rate of dormants waking up              | 0.1   |
-| $\delta$    | Death rate of dormants                  | 0.1   |
-| $T_{min}$   | Minimal breeding temperature            | 10-20 |
-| $T_{range}$ | Width of temperature niche              | 5-10  |
-| $N_0$       | Initial number of awaken per genotype   | 10    |
-| $D_0$       | Initial number of dormants per genotype | 20    |
+|             | Parameter                               | Value      |
+|-------------|-----------------------------------------|------------|
+| $K$         | Carrying capacity                       | 100        |
+| $t_{sleep}$ | Rate of dormancy                        | 0.1-0.9    |
+| $t_{wake}$  | Rate of dormants waking up              | 0.1-0.9    |
+| $\delta$    | Death rate of dormants                  | 0.1        |
+| $T_{min}$   | Minimal breeding temperature            | 10-20      |
+| $T_{range}$ | Width of temperature niche              | 5-10       |
+| $N_0$       | Initial number of awaken per genotype   | 10         |
+| $D_0$       | Initial number of dormants per genotype | 20         |
 
 ## Shape of temperature response curve
 
@@ -550,13 +676,16 @@ ggplot()+
 ------------------------------------------------------------------------
 
 ```{r}
-outp <- read.table("../output.tsv", header=TRUE)
+outp <- read.table("../old_output.tsv", header=T)
 #str(outp)
 table = outp |> pivot_longer(cols=starts_with("type"), names_to = "type", values_to = "number")
 #str(table)
 p1 <- ggplot(table, aes(x=time, y=number))+
   geom_line(aes(color=type))+
-  theme(legend.position = "none", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  theme(legend.position = "none", 
+        axis.title.x = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank())
 
 p2 <- ggplot(table, aes(x=time, y=temperature))+
   geom_line()+
