@@ -22,7 +22,7 @@ struct TempParams {
 class Model {
 	private:
 		std::vector<std::function< void(const state_type&, state_type&, double) >> func_awake;
-		std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
+		//std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 		
 		double sumNperK;
 		const double K;
@@ -43,7 +43,7 @@ class Model {
 
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
-				const double A=10, 
+				const double A=1, 
 				const double b=1.9, 
 				const double _K=100, 
 				const double _Psleep = 0.1, 
@@ -74,17 +74,31 @@ class Model {
 								//copy: Tmin, Tmax, Trange, base, compensation, g, gplus
 								//does not matter: Psleep, Pwake
 								//reference: sumNperK
-								double diff1 = N[0] - Tmin, diff2 = Tmax - N[0];
-								dNdt[g] = N[g] * std::pow(base, diff1) * diff2 * diff1 / compensation * (1 - sumNperK) - N[g]*Psleep + N[gplus]*Pwake;
+								double diff1 = N[0] - Tmin, diff2 = Tmax - N[0], repl_rate = std::pow(base, diff1) * diff2 * diff1 / compensation;
+								double Ng = N[g], Dg = N[gplus];
+								if(Ng < 0.0) Ng = 0.0;
+								if(Dg < 0.0) Dg = 0.0;
+
+								// calculate dNdt
+								dNdt[g] = Ng * (repl_rate - std::abs(repl_rate * sumNperK) ) - Ng*Psleep + Dg*Pwake;
+								// calculate dDdt
+								dNdt[gplus] = Ng*Psleep - Dg*PwakePlusDelta;
+
+								// for safety
+								if(dNdt[g] < 0.0 && N[g] <= 0.0) dNdt[g] = 0.0;
+								if(dNdt[gplus] < 0.0 && N[gplus] <= 0.0) dNdt[gplus] = 0.0;
 							} );
 
 					//add function for dormant population
-					func_sleeping.push_back( [&, this, g, gplus](const state_type &N, state_type &dNdt, double t ){
+					/*func_sleeping.push_back( [&, this, g, gplus](const state_type &N, state_type &dNdt, double t ){
 								//variable: N, dNdt
 								//copy: g, gplus
 								//does not matter: Psleep, PwakePlusDelta
-								dNdt[gplus] = N[g]*Psleep - N[gplus]*PwakePlusDelta;
-							} );
+								double Ng = N[g], D = N[gplus];
+								if(Ng < 0.0) Ng = 0.0;
+								if(D < 0.0) D = 0.0;
+								dNdt[gplus] = Ng*Psleep - D*PwakePlusDelta;
+							} );*/
 					g += 2; //step to next awake population
 				}
 		}
@@ -148,7 +162,7 @@ class Model {
 			for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);
 
 			//compute dormant pop derivatives
-			for(auto f = func_sleeping.begin(); f != func_sleeping.end(); f++) (*f)(x, dxdt, t);
+			//for(auto f = func_sleeping.begin(); f != func_sleeping.end(); f++) (*f)(x, dxdt, t);
 
 		}
 };
@@ -213,7 +227,7 @@ class Reporter {
 			// add header if neccesary
 			if(!started){
 				file << "time\ttemperature";
-				for(unsigned int type = 1; type < x.size(); type++) file << "\ttype" << type;;
+				for(unsigned int type = 1; type <= x.size()/2; type++) file << "\tN" << type << "\tD" << type;
 				file << std::endl;
 				started = true;
 			}
@@ -250,7 +264,7 @@ public:
 int main()
 {
 	// model parameters
-	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 10.0, inicDormant = 10.0, mean_Tshift = 10, mean_Tr = 20; //settings
+	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, mean_Tshift = 10, mean_Tr = 20; //settings
 																	      
 	// inic rng
 	randomszam_inic(154, r);

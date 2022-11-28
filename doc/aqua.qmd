@@ -584,8 +584,8 @@ $$\frac{dT}{dt}= \dots \\
 | $\delta$    | Death rate of dormants                  | 0.1        |
 | $T_{min}$   | Minimal breeding temperature            | 10-20      |
 | $T_{range}$ | Width of temperature niche              | 5-10       |
-| $N_0$       | Initial number of awaken per genotype   | 10         |
-| $D_0$       | Initial number of dormants per genotype | 20         |
+| $N_0$       | Initial number of awaken per genotype   | 0          |
+| $D_0$       | Initial number of dormants per genotype | 10         |
 
 ## Shape of temperature response curve
 
@@ -676,15 +676,18 @@ ggplot()+
 ------------------------------------------------------------------------
 
 ```{r}
-outp <- read.table("../old_output.tsv", header=T)
+outp <- read.table("../output.tsv", header=T)
 #str(outp)
-table = outp |> pivot_longer(cols=starts_with("type"), names_to = "type", values_to = "number")
+table = outp |> 
+  pivot_longer(cols=starts_with("N") | starts_with("D"), names_to = "type", values_to = "number") #|>
+  # pivot_wider(names_from = type, )
+table[table$number < 0,]$number <- 0
 #str(table)
 p1 <- ggplot(table, aes(x=time, y=number))+
   geom_line(aes(color=type))+
   theme(legend.position = "none", 
         axis.title.x = element_blank(), 
-        axis.text = element_blank(), 
+        #axis.text = element_blank(), 
         axis.ticks = element_blank())
 
 p2 <- ggplot(table, aes(x=time, y=temperature))+
