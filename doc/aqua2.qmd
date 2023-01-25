@@ -1,0 +1,620 @@
+---
+title: "Toy model"
+subtitle: "Temperature dependent dynamics in aquatic communities"
+format: 
+  revealjs:
+    toc: true
+    chalkboard:
+      buttons: false
+author: "Dániel Vörös"
+date: today
+echo: false
+cache: true
+fig-align: center
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, setup2, include=FALSE, message=F, cache=F}
+#libraries that reload
+library(tidyr)
+library(ggplot2)
+library(deSolve)
+library(RColorBrewer)
+library(gridExtra)
+library(plotly)
+library(cowplot)
+```
+
+```{r, setup, include=FALSE, message=F}
+# libraries that not reload everytime
+library(geodata)
+```
+
+# Climate
+
+## Getting climate data
+
+-   `geodata` package for downloading CMIP6 climate data
+-   Tons of models (e.g. "CNRM-CM6-1-HR")
+-   Socio - economic Pathways: 126, 245, 370 or [585]{.underline}
+-   predictions for different time-intervals: 2021-2040, 2041-2060 or [2061-2080]{.underline}
+-   monthly resolution: minimal-, maximal temperature, precipitation
+
+------------------------------------------------------------------------
+
+```{r load_climate_data}
+#f <- "*EUR-44*"
+#UDG.datasets(pattern = f)
+
+#bio10 <- cmip6_world("CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+biomin <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+#bioavg <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tavg", res=10, path=tempdir())
+biomax <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmax", res=10, path=tempdir())
+
+#b <- bio10$tmin01
+#bc <- crop(b, ext(-30, 50, 30, 80))
+plot(crop(biomax, ext(-11, 35, 42, 71)))
+```
+
+## In time
+
+```{r, dependson="load_climate_data"}
+#plot(biomax)
+
+#which(!is.nan(values(bio$wc2.1_30s_tmin_01)))
+#barplot(unlist(biomin[1447]))
+#barplot(unlist(biomax[1447]))
+
+
+b <- cbind( (biomin[1447]), (biomax[1447]) )
+b2 = b |> 
+  #select( !starts_with("no_A", ignore.case = F)) |> 
+  pivot_longer(cols= everything(), names_to=c("parameter", "month"), values_to = "val", names_pattern = "wc2.1_30s_(.*)_(.*)")
+
+b3 <- b2 |> pivot_wider(names_from = parameter, values_from = val)
+
+ggplot(b3, aes(x=month))+
+  geom_linerange(aes(ymin=tmin, ymax=tmax))+
+  labs(x="Month", y="Ground temperature [Celsius degree]")
+
+```
+
+## How to model temperature?
+
+-   Sinus function in literature
+
+```{r}
+func <- function(t, state, parameters) {
+  with(as.list(c(state, parameters )), {
+    Tr <- Tpar[max(which(Tpar$tfrom <= t)),"Tr"]
+    Tshift <- Tpar[max(which(Tpar$tfrom <= 0)),"Tshift"]
+    
+    dX <-  ( (Tr*cos(t)+Tshift)  -X)
+    w = t > et$min & t < et$max
+    if( any(w) ) {
+      #cat(paste(round(t, 3), round(X, 2), round(dX, 2), "\n") )
+      dX <- dX * et[w, "times"]
+    }
+    list(dX, Tr=Tr)
+  })
+}
+```
+
+```{r}
+state <- c(X = 10)
+times <- seq(0, 20, by = 0.01)
+no_errors = 0
+length=0.1
+Tpar <- data.frame(tfrom=0, Tr = 20, Tshift = 10)
+```
+
+```{r eval_ode}
+at = runif(no_errors, 0, max(times))
+a = rnorm(length(at), sd=6)
+parameters <- list(et = data.frame(min=at-length/2, max=at+length/2, times=a), 
+                   Tpar = Tpar)
+
+out <- ode(y = state, times = times, func = func, parms = parameters)
+
+ggplot(as.data.frame(out), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")
+
+```
+
+## Interannual variations
+
+```{r}
+state <- c(X = 10)
+times <- seq(0, 50, by = 0.01)
+no_errors = 0
+length=0.1
+Tpar <- data.frame(tfrom=6*0:10, Tr = rnorm(11, mean=20, sd=2), Tshift = rnorm(11, mean=10, sd=1))
+```
+
+```{r, cache=F}
+at = runif(no_errors, 0, max(times))
+a = rnorm(length(at), sd=6)
+parameters <- list(et = data.frame(min=at-length/2, max=at+length/2, times=a), 
+                   Tpar = Tpar)
+
+out <- ode(y = state, times = times, func = func, parms = parameters)
+
+ggplot(as.data.frame(out), aes(x=time, y=X, color=Tr))+
+  geom_line()+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none")
+
+```
+
+# Climate model by
+
+## The model {.smaller}
+
+$$C \frac{dT}{dt}=Q^* \sin{\omega t} + Q_0-B T$$
+
+| sign     | meaning | value |
+|:---------|:--------|------:
+|$\omega$  | wavelength | $2\pi$ |
+| $Q^*$    | amplitude of the seasonal variations | |
+| $Q_0$    | annual mean insolation | |
+| $B$      | longwave radiative feedback in our system: a measure of how efficiently a warm anomaly is radiated away to space | 2 $\frac{W}{m^2K}$ | 
+| $C$      | heat capacity of the whole column | ?? $\frac{J} {m^2 K}$ |
+| $\hat C$ | heat capacity | ?? |
+| $T_0$    | annual mean temperature | variable |  
+| $T^*$    | annual temperature amplitude | |
+
+: {tbl-colwidths="[10, 75 ,10]"}
+
+## Mean and amplitude {.smaller}
+
+- Mean: 
+
+    $$T_0=\frac{Q_0}{B}$$
+- Amplitude: depends on heat capacity $\left ( \hat C = \frac{C \omega}{B} \right )$
+      
+  - general solution 
+  
+      $$T^* = \frac{Q^*}{B}\frac{1}{(1+\hat C^2) \cos {(\arctan{\hat C})}}$$
+  
+  - if $C=0 \to T_* = Q^* / B$
+  - in shallow water $\hat C << 1 \to T^* = \frac{Q^*}{B}(1-\hat C)$
+
+## Plot
+
+```{r}
+func2 <- function(t, state, parameters) {
+  with(as.list(c(state, parameters )), {
+    list(dX=(amp * sin(omega * t) + mean - (B*X) )/C )
+  })
+}
+parameters = list(amp= 10, mean=20, omega= 2*pi, B= 2, C=1)
+out2 <- ode(y = state, times = seq(0, 10, by = 0.01), func = func2, parms = parameters)
+ggplotly(ggplot(as.data.frame(out2), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none"))
+
+
+#parameters$omega*t=0 #spring equinox
+#parameters$omega*t=pi/2 #summer solistice
+#parameters$omega*t=pi #fall equinox
+#parameters$omega*t=3*pi/2 #winter solictice
+
+T0 = (parameters$mean - parameters$A)/parameters$B # mean annual temperature
+heat_capacity = parameters$C * parameters$omega/parameters$B 
+sigma = atan(heat_capacity)
+#parameters$amp/parameters$B #for C = 0
+parameters$amp/parameters$B/(1+heat_capacity^2)/cos(atan(heat_capacity)) # general solution
+#parameters$amp/parameters$B * (1-heat_capacity) # heat_capacity << 1 ~ shallow water 
+```
+
+## Scale it
+
+```{r}
+print_params <- function(...){
+  x <- list(...)
+  
+  #unlist lists
+  l <- sapply(x, is.list)
+  for(w in which(l)){
+    for(e in 1:length(x[[w]]) ){
+      x[[names(x[[w]][e])]] <- unname(unlist(x[[w]][e]))
+    }
+  }
+  x <- x[-which(l)]
+  
+  # concat stuff
+  
+  # make table
+  table <- data.frame(parameter = names(x), value = unlist(x))
+  
+  # print stuff
+}
+```
+
+```{r}
+heat_capacity = 0.01
+T0 = 20
+amplitude = 15
+
+parameters$C = heat_capacity * parameters$B/parameters$omega
+parameters$mean = T0 * parameters$B
+parameters$amp = parameters$B * amplitude / (1 - heat_capacity) 
+
+out2 <- ode(y = state, times = seq(0, 5, by = 0.01), func = func2, parms = parameters)
+ggplotly(ggplot(as.data.frame(out2), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none"))
+
+```
+
+let $\hat C = 0.01 \text{ and } C=`r parameters$C`$
+
+
+
+## Extreme temperature deviations
+
+```{r}
+state <- c(X = 10)
+times <- seq(0, 20, by = 0.01)
+no_errors = 4
+length=0.1
+Tpar <- data.frame(tfrom=0, Tr = 20, Tshift = 10)
+```
+
+```{r}
+set.seed(44)
+#set.seed(85)
+
+at = runif(no_errors, 0, max(times))
+a = rnorm(length(at), sd=6)
+parameters <- list(et = data.frame(min=at-length/2, max=at+length/2, times=a), 
+                   Tpar = Tpar)
+
+out <- ode(y = state, times = times, func = func, parms = parameters)
+
+ggplot(as.data.frame(out), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")
+```
+
+
+
+# Model
+
+## Equations
+
+
+$$\frac{dR}{dt}= R ~ r_{max} (1 - \frac{R}{K_R(T)}) - f(R) \sum N_g \\
+\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)\\
+\frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D$$
+
+## Resource {.smaller}
+
+$R$ is semi-chemostat: let's assume they are at $K_R(T)$
+
+$$K_R(T) = d_K M_i^{b_K} e^{E_K \frac{T_0 - T}{k T T_0}}$$
+
+```{r}
+CtoK <- function(x) return(x+273.15)
+KtoC <- function(x) return(x-273.15)
+```
+
+
+| variable |                                                                                           | value            |
+|:---------|:------------------------------------------------------------------------------------------|-----------------:|
+| $T$      | temperature (in Kelvin)                                                                   | variable         |
+| $d_K$    | parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K | ?                |
+| $M_i$    | body mass                                                                                 |  ?               |
+| $b_K$    | the exponent of the respective body-mass scaling relationship                             | $0.28$           |
+| $E_K$    | activation energy                                                                         |   $0.71$         |
+| $k$      | Boltzmann constant                                                                        | $8.62 x 10^{-5}$ |
+| $T_0$    | normalisation temperature                                                                 |   $293.15$       |
+
+
+## Carrying capacity ~ T
+
+$$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}$$
+
+```{r}
+K <- function(temp, mass=1, d=1) return(d*mass^0.28*exp(0.71*(293.15-temp)/8.62e-5/temp/293.15 ))
+KC <- function(temp, mass=1, d=1) return(d*mass^0.28*exp(0.71*(293.15-CtoK(temp) )/8.62e-5/CtoK(temp)/293.15 ))
+```
+
+```{r}
+Tmin = 20
+Trange = 20
+Tmax = Tmin+Trange
+```
+
+
+```{r}
+#| fig-align: center
+
+ggplot()+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=0.5), aes(color="0.5") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=1), aes(color="1") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=2), aes(color="2") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=0), aes(color="0") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=-1), aes(color="-1") )+
+  labs(x="Temperature [°C]", y=bquote(paste("Carrying capapcity " (K[R]))), caption = bquote(M == 1) )+
+  scale_color_discrete(name=bquote(d[K] == {} ))
+```
+
+
+## Feeding
+
+**All** $N_g$s are feeding on $R$ with *Holling-2* functional response, with attack rate $a$ and handling time $h$
+
+$$f(R) = R \frac{a}{(1 + a h R)}$$
+
+```{r}
+#| fig-align: center
+
+holling2 <- function(resource, attack=0.2, handling=0.4) attack * resource/(1 + attack * handling * resource)
+#curve(holling2(x), from=0, to=40, xlab=bquote(K[R]), ylab=bquote(r[max]))
+ggplot()+
+  geom_function(fun=holling2, xlim=c(0, 40))+
+  labs(x=bquote(K[R]), y=bquote(r[max]))
+```
+
+## Birth rate
+
+Eppley curve: temperature acts on $f(R)$, **according to genotype** $g$ 
+
+$$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
+
+$$c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
+
+## Realized birth rate
+
+- Temperature dependence: $K_R$; shape of curve by $g$
+- Density dependence: common resource $R$
+
+```{r}
+b6 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r = r - abs(r*sumN/KC(T, d=100))
+  return(ifelse(r < 0, 0, r))
+}
+```
+
+
+```{r}
+#| fig-align: center
+
+A=10
+b=1.9
+
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+ggplot()+
+  stat_function(fun = b6, 
+                geom="area", fill="lightgreen",
+                args=list(Tmin=20, Tmax=30, Trange=10, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(15, 35) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=20, Tmax=30, Trange=10, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(15, 35) )+
+  annotate(geom = "label", x=26, y=0.1, label="A == f(R) * c", parse=T, size=6)+
+  labs(x="Temperature", y = bquote(b[g]))+
+  coord_cartesian(ylim=c(-0.2, 0.4))+
+  theme(legend.position = "none")
+```
+
+## Death rate
+
+Temperature acts on $\delta_g$
+
+- cold: death by freezing
+- warm: metabolism, low $O_2$
+
+```{r}
+#| fig-align: center
+
+d9 <- function(T, x1=0, curve1=1, x2=0, curve2=0) 1/(1+exp(-(T-x1)*curve1)) + 1/(1+exp((T-x2)*curve2))
+
+ggplot()+
+  geom_function(fun= d9, xlim=c(-10, 50), args=list(x1=30, curve1=0.25, x2=-25, curve2=0.2))+
+  coord_cartesian(ylim = c(0, 1))+
+  labs(y=bquote(delta[g]), x="Temperature")
+
+```
+
+
+## Replication
+
+```{r}
+ff10 <- function(T, d_a, d_b, ...){
+  b <- b10(T, ...)
+  d <- d9(T, x1=d_a, curve1=d_b, x2=-25, curve2=0.2)
+  return(b-d)
+}
+
+r10 <- function(T, Tmin, Tmax, Trange, b, compensation){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  return(ifelse(r < 0, 0, r))
+}
+
+KR10 <- function(T, sumN=0, K=40, d=100){
+  KR <- KC(T, d)
+  KR * (pmax(0, 1-sumN/K))
+}
+
+b10 <- function(T, b=1.9, attack = 0.2, handling = 0.4, a_comp=1, compensation = NA, sumN=0, ...){
+  KR <- KR10(10, sumN)
+  rmax <- holling2(KR, attack=attack, handling=handling)
+  
+  A=rmax*a_comp
+  compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+  return(r10(T, b=b, compensation=compensation, ...))
+}
+
+```
+
+
+```{r, eval=T}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+d_a = 50
+d_b = 0.15
+
+Tmin = 20
+Trange = 20
+Tmax = Tmin+Trange
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+reso <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = KR10, 
+                args=list(sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Resource"
+       )+
+  #coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+birth <- 
+  ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "none", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+death <- ggplot()+
+  geom_function(fun = d9, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(x1=d_a, curve1=d_b, x2=-25, curve2=0.2))+
+  coord_cartesian(ylim=c(0, 1))+
+  labs(y="Death rate", x="Temperature")
+
+Rv10 <- ggplot()+
+  geom_rect(aes(xmin=Tmin, xmax=Tmax, ymin=-Inf, ymax=Inf), fill="red", alpha=0.1) +
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       subtitle = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-1, 1))+
+  theme(legend.position = "none")
+
+
+plot_grid(plot_grid(reso, birth, death, ncol=1, align="v"), Rv10, ncol=2, rel_widths = c(1, 2))
+```
+
+
+## Temperature depedence of $h_{sleep}$
+
+::: columns
+::: {.column width="45%"}
+```{r}
+ggplot()+
+  geom_function(fun=function(x) dnorm(0) - dnorm(x), xlim=c(-3,3), linewidth=3)+
+  theme(axis.text = element_blank())+
+  labs(x="Temperature", y= bquote(t[sleep]))
+```
+
+![](dryfish.jpg){fig-align="center" width="50%"}
+:::
+
+::: {.column width="10%"}
+:::
+
+::: {.column width="45%" align="right"}
+```{r}
+ggplot()+
+  geom_function(fun=function(x) 1/(1+exp(x)), xlim=c(-5,5), linewidth=3)+
+  theme(axis.text = element_blank())+
+  labs(x="Temperature", y= bquote(ts[sleep]))
+```
+
+![](Dragonfly.jpg)
+:::
+:::
+
+## Temperature depedence of dormancy
+
+$$t_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
+$$t_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
+
+```{r}
+#| fig-align: center
+Tmin=15
+Trange = 10
+Tmax= Tmin + Trange
+tsleep <- function(x, Tmin, Tmax, Trange) 0.8/(1+exp(x-Tmax+Trange/2)) + 0.1
+twake <- function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1
+ggplot()+
+  stat_function(fun=tsleep,
+                geom="area",
+                fill= "lightgreen",
+                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                xlim=c(Tmin,Tmax),
+                linewidth=3)+
+  geom_function(fun=tsleep,
+                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                xlim=c(Tmin-Trange/10,Tmax+Trange/10),
+                linewidth=3)+
+  geom_function(fun=twake,
+                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                xlim=c(Tmin-Trange/10,Tmax+Trange/10),
+                linewidth=1, color="grey", linetype="dashed" )+
+  coord_cartesian(ylim=c(0,1))+
+  #theme(axis.text = element_blank())+
+  labs(x="Temperature", y= bquote(P[sleep]))
+```

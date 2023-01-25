@@ -25,6 +25,9 @@ library(tidyr)
 library(ggplot2)
 library(deSolve)
 library(RColorBrewer)
+library(gridExtra)
+library(plotly)
+library(cowplot)
 ```
 
 # Climate
@@ -323,7 +326,11 @@ ggplot()+
 #abline(h=0)
 ```
 
-## Changing parameters
+## Changing parameters {.smaller}
+
+::: panel-tabset
+
+## flexible
 
 ::: {layout="[[1,1], [1,1]]"}
 ```{r}
@@ -389,6 +396,109 @@ ggplot()+
        title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
        )
 ```
+:::
+
+## fix
+
+::: {layout="[[1,1], [1,1]]"}
+
+```{r}
+Trange=10
+Tmin=10
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(9, 41), 
+                color="blue")+
+  coord_cartesian(ylim=c(-5, 2))+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+```{r}
+Trange=20
+Tmin=10
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(9, 41), 
+                color="blue")+
+  coord_cartesian(ylim=c(-5, 2))+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+```{r}
+Trange=10
+Tmin=20
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(9, 41), 
+                color="blue")+
+  coord_cartesian(ylim=c(-5, 2))+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+
+```{r}
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+ggplot()+
+  stat_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(Tmin,Tmax), 
+                geom="area", 
+                fill="lightblue")+
+  geom_function(fun = ff, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), 
+                xlim = c(9, 41), 
+                color="blue")+
+  coord_cartesian(ylim=c(-5, 2))+
+  labs(x="Temperature", y = "Replication rate",
+       title = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )
+```
+:::
+
 :::
 
 ```{r, eval=F}
@@ -700,3 +810,1536 @@ p2 <- ggplot(table, aes(x=time, y=temperature))+
 #gridExtra::grid.arrange(p1, p2, ncol=1, )
 cowplot::plot_grid(p1, p2, align = "v", ncol = 1)
 ```
+
+# Replication rate versions
+
+## Replication rate - v1
+
+$$r(T) = A e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
+
+$$c(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
+
+```{r}
+ff <- function(T, Tmin, Tmax, Trange, b, compensation){
+  exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+}
+ff2 <- function(T, Tmin, Tmax, Trange, b, compensation){
+  exp(b/Trange)^(T-Tmin) * (Tmax - T) * (T - Tmin) / compensation
+}
+```
+
+## Temperature dependence
+
+```{r}
+Trange=11
+Tmin=10*2
+A=10
+b=1.9
+
+```
+
+```{r}
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+ggplot()+
+  stat_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin,Tmax), geom="area", fill="lightblue")+
+  geom_function(fun = ff, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation), xlim = c(Tmin-Trange/10,Tmax+Trange/10), color="blue")+
+  labs(x="Temperature", y = "Replication rate")
+#curve(ff(T, Tmin, Tmax, Trange, b, compensation), xname="T", from=Tmin-Trange/10, to=Tmax+Trange/10)
+#abline(h=0)
+```
+
+## version 2
+
+$$r(T) - \left | r(T)\frac{\sum N}{K} \right | $$
+
+::: panel-tabset
+
+### plot
+
+
+```{r}
+#| fig-asp: 0.5
+#| fig-align: center
+#| out-width: 90%
+ff2 <- function(T, Tmin, Tmax, Trange, b, compensation, sumNperK = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r - abs(r*sumNperK)
+}
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+Rv2 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("2K", "K", "0", "K/2"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 0), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 0.5), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 1), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff2, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 2), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )+
+  theme(legend.position = "top")
+Rv2
+```
+
+### in 3D
+
+```{r}
+temp <- seq(Tmin-5, Tmax+5)
+sumNperK <- seq(0, 2, length.out=100)
+
+R <- outer(temp, sumNperK, ff2, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation)
+
+plot_ly(y=temp, x=sumNperK) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N/K'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r}
+plot_ly(x=sumNperK, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N/K', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
+
+## Changing carrying capacity {.smaller visibility="hidden"}
+
+$$K_i = d_K M_i^{b_K} e^{E_K \frac{T_0 - T}{k T T_0}}$$
+
+```{r}
+CtoK <- function(x) return(x+273.15)
+KtoC <- function(x) return(x-273.15)
+```
+
+
+| variable |                                                                                           | value            |
+|:---------|:------------------------------------------------------------------------------------------|-----------------:|
+| $T$      | temperature (in Kelvin)                                                                   | variable         |
+| $d_K$    | parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K | ?                |
+| $M_i$    | body mass                                                                                 |  ?               |
+| $b_K$    | the exponent of the respective body-mass scaling relationship                             | $0.28$           |
+| $E_K$    | activation energy                                                                         |   $0.71$         |
+| $k$      | Boltzmann constant                                                                        | $8.62 x 10^{-5}$ |
+| $T_0$    | normalisation temperature                                                                 |   $293.15$       |
+
+
+## Carrying capacity ~ T
+
+$$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}$$
+
+```{r}
+K <- function(temp, mass=1, d=1) return(d*mass^0.28*exp(0.71*(293.15-temp)/8.62e-5/temp/293.15 ))
+KC <- function(temp, mass=1, d=1) return(d*mass^0.28*exp(0.71*(293.15-CtoK(temp) )/8.62e-5/CtoK(temp)/293.15 ))
+```
+
+
+```{r}
+#| fig-align: center
+
+ggplot()+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=0.5), aes(color="0.5") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=1), aes(color="1") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=2), aes(color="2") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=0), aes(color="0") )+
+  geom_function(fun=KC, xlim=c(10, 30), args=list(mass=1, d=-1), aes(color="-1") )+
+  labs(x="Temperature [°C]", y="Carrying capapcity (K)", caption = bquote(M == 1) )+
+  scale_color_discrete(name=bquote(d[K] == {} ))
+```
+
+
+## Temperature curves - version 3 {.smaller}
+
+$$r(T) - \left | r(T)\frac{\sum N}{K(T)} \right | $$
+
+```{r}
+#| fig-asp: 0.8
+#| fig-align: center
+#| out-width: 100%
+ff3 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r - abs(r*sumN/KC(T, d=100))
+}
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+Rv3 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("40", "20", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff3, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff3, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff3, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 20), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff3, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100))
+       )+  
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+Rv3
+```
+
+## Temperature curves - version 4 {.smaller}
+
+$$r(T) - \left | r(T)\frac{\sum N}{K(T)} \right | -\delta_N $$
+
+::: panel-tabset
+
+### plot
+
+
+```{r}
+#| fig-asp: 0.5
+#| fig-align: center
+#| out-width: 100%
+ff4 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0, delta=0.2){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r - abs(r*sumN/KC(T, d=100)) - delta
+}
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+Rv4 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("40", "20", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff4, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff4, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff4, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 20), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff4, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+Rv4
+```
+
+### in 3D
+
+```{r}
+temp <- seq(Tmin-5, Tmax+5)
+sumN <- seq(0, 80)
+
+R <- outer(temp, sumN, ff4, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation)
+
+plot_ly(y=temp, x=sumN) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
+
+## Temperature curves - version 5 {.smaller}
+
+$$ \text{if} ~ \hat r(T, N) \ge 0 : \hat r(T, N) -\delta_N \\
+\text{if} ~ \hat r(T) < 0 : -\delta_N \\
+\hat r(T, N) = r(T) - \left | r(T)\frac{\sum N}{K(T)} \right |$$
+
+::: panel-tabset
+
+### plot
+
+```{r}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+ff5 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0, delta=0.2){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  R = r - abs(r*sumN/KC(T, d=100))
+  return(ifelse(R < 0, -delta, R - delta))
+}
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+Rv5 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("40", "20", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff5, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff5, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff5, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 20), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff5, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+Rv5
+```
+
+### in 3D
+
+```{r}
+temp <- seq(Tmin-5, Tmax+5)
+sumN <- seq(0, 80)
+
+R <- outer(temp, sumN, ff5, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation)
+
+plot_ly(y=temp, x=sumN) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
+
+## Temperature curves - Bernhardt {.smaller}
+
+$$B_i(M, T) = b_{0i}M_i^{3/4}e^{-E_a/kT} $$
+$B_i$ - metablic rate; $b_0$ - normalisation constant; $M$ - mass; $E_a$ - activation energy; $k$ - Boltzmann
+
+at $\sum B_i = P$ carrying capacity reached
+
+$$M_i(T)=M_i^{T_R}(1-\beta(T-T_R))$$
+
+$\beta$ - fraction by which body mass is reduced as temperature T is increased by 1K; $T_R$ - ref. temp.
+
+```{r, echo=T}
+ffB <- function(TC, N, r=1, beta=0.02, Ea=0.71, K=100, TRC = 20, MTR=2){
+  T <- CtoK(TC)
+  TR <- CtoK(TRC)
+  M <- MTR*(1-beta*(T-TR))
+  B <- N*M^(3/4)*exp(-Ea/T/8.62e-5)
+  P <- K*MTR^(3/4)*exp(-Ea/TR/8.62e-5) # P when: T=TR & M=MTR & N=K
+  return(r*(1-B/P))
+}
+```
+
+---
+
+```{r}
+#| fig-asp: 0.8
+#| fig-align: center
+#| out-width: 100%
+
+Tmin=10
+Tmax=30
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+ggplot()+
+  scale_colour_manual(values=cols, labels=c("0", "50", "150", "100"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ffB, 
+                args=list(N = 150), 
+                xlim = c(Tmin,Tmax), aes(color=cols[1]) )+
+  geom_function(fun = ffB, 
+                args=list(N = 100), 
+                xlim = c(Tmin,Tmax), aes(color=cols[2]) )+
+  geom_function(fun = ffB, 
+                args=list(N = 50), 
+                xlim = c(Tmin,Tmax), aes(color=cols[3]) )+
+  geom_function(fun = ffB, 
+                args=list(N = 0), 
+                xlim = c(Tmin,Tmax), aes(color=cols[4]) )+
+ 
+  labs(x="Temperature", y = "Replication rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+```
+
+## Temperature curves - Bernhardt 2 {.smaller}
+
+$$r(T) = a e^{bT} \left [ 1-\left ( \frac{T-z}{w/2} \right )^2 \right ]$$
+
+$a$ and $b$ are parameters from the Eppley curve; $z$: the location of the maximum of the quadratic portion of the function; $w$: the range over which the growth rate is positive
+
+```{r, echo=F}
+ffB2 <- function(TC, a=2.46e-6, b=3.45, zC=20, w=10){
+  #z <- CtoK(zC)
+  #T <- CtoK(TC)
+  z <- zC
+  T <- TC
+  return( a*exp(b*T)*( 1 - ( (T-z)/w*2 )^2 ) )
+}
+
+
+#| fig-asp: 0.8
+#| fig-align: center
+#| out-width: 100%
+
+cols = brewer.pal(4, "BrBG")
+
+ggplot()+
+  #scale_colour_manual(values=cols, labels=c("0", "50", "150", "100"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ffB2, 
+                #args=list(N = 150), 
+                xlim = c(22,25), aes(color=cols[1]) )+
+  
+  labs(x="Temperature", y = "Replication rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+```
+
+## Bernhardt curves put together
+
+```{r}
+#| fig-asp: 0.8
+#| fig-align: center
+#| out-width: 100%
+ffB3 <- function(TC, N){
+  r = ffB2(TC)
+  return(ffB(TC, N, r))
+}
+
+Tmin=22
+Tmax=25.1
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+ggplot()+
+  scale_colour_manual(values=cols, labels=c("0", "50", "150", "100"), name=bquote(paste( sum(), N == {} )) )+
+  # geom_function(fun = ffB, 
+  #               args=list(N = 50), 
+  #               xlim = c(22,25), aes(color=cols[1]) )+
+  # geom_function(fun = ffB2, 
+  #               #args=list(N = 100), 
+  #               xlim = c(22,25), aes(color=cols[2]) )+
+  geom_function(fun = ffB3, 
+                args=list(N = 150), 
+                xlim = c(Tmin,Tmax), aes(color=cols[1]) )+
+  geom_function(fun = ffB3, 
+                args=list(N = 100), 
+                xlim = c(Tmin,Tmax), aes(color=cols[2]) )+
+  geom_function(fun = ffB3,
+                args=list(N = 50),
+                xlim = c(Tmin,Tmax), aes(color=cols[3]) )+
+  geom_function(fun = ffB3,
+                args=list(N = 0),
+                xlim = c(Tmin,Tmax), aes(color=cols[4]) )+
+  labs(x="Temperature", y = "Replication rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+```
+
+
+## Comparison {visibility="hidden"}
+
+```{r}
+#| fig-align: center
+#| out-width: 100%
+#| layout-ncol: 2
+
+RvB <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("0", "50", "150", "100"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ffB3, 
+                args=list(N = 150), 
+                xlim = c(Tmin,Tmax), aes(color=cols[1]) )+
+  geom_function(fun = ffB3, 
+                args=list(N = 100), 
+                xlim = c(Tmin,Tmax), aes(color=cols[2]) )+
+  geom_function(fun = ffB3,
+                args=list(N = 50),
+                xlim = c(Tmin,Tmax), aes(color=cols[3]) )+
+  geom_function(fun = ffB3,
+                args=list(N = 0),
+                xlim = c(Tmin,Tmax), aes(color=cols[4]) )+
+  labs(x="Temperature", y = "Replication rate",
+       title="Bernhardt"
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  theme(legend.position = "top")
+
+ffo <- function(T, Tmin, Tmax, Trange, b, compensation, sumNperK = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r* (1- sumNperK)
+}
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+Rv1 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("2K", "K", "0", "K/2"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ffo, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 0), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ffo, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 0.5), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ffo, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 1), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ffo, args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumNperK = 2), xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Replication rate", title="Original",
+       caption = bquote(paste(T[min] == .(Tmin) ,", ", T[max] == .(Tmax), ", ", T[range] == .(Trange), ", ", A == .(A), ", ", b == .(b)))
+       )+
+  theme(legend.position = "top")
+Rv1
+```
+
+## Notes {.smaller visibility="hidden"}
+
+Problems: 
+
+- if $K < N$ at high temperature: it returns to 0 around $T_{max}$ <-> should monotonously decline
+
+To do:
+
+- try something else than logistic density dependece - exp K or sigmoidal?
+- separate birth and death: 
+  - birth: 
+    - Eppley or gaussian
+    - also density dependence: according to Bernhardt: K
+  - death:
+    - (1) exponential <-> but they die at low temp too
+    - (2) reverse gaussian or $x^2$ or something similar
+
+Notes:
+
+  - according to David birth is usually more dependent on density than death
+
+## Version 6{.smaller}
+
+- birth: Eppley + density dependence
+- death: exponential
+
+```{r}
+b6 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r = r - abs(r*sumN/KC(T, d=100))
+  return(ifelse(r < 0, 0, r))
+}
+d6 <- function(T, a=1, b=1) a*exp(T*b)
+
+Trange=20
+Tmin=20
+A=10
+b=1.9
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+Tmax=Tmin+Trange
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+d_a = 0.01
+d_b = 0.1
+```
+
+::: panel-tabset
+
+### plot
+
+
+```{r}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+ff6 <- function(T, d_a, d_b, ...){
+  b <- b6(T, ...)
+  d <- d6(T, d_a, d_b)
+  return(b-d)
+}
+
+birth <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+
+death <- ggplot()+
+  geom_function(fun = d6, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(a=d_a, b=d_b))+
+  labs(y="Death rate", x="Temperature")
+
+Rv6 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+
+
+grid.arrange(birth, death, Rv6, layout_matrix=rbind(c(1, 3),c(2, 3)), widths=c(1, 2))
+```
+
+### in 3D
+
+```{r}
+temp <- seq(Tmin-5, Tmax+5)
+sumN <- seq(0, 80)
+
+R <- outer(temp, sumN, ff6, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, d_a=d_a, d_b=d_b)
+
+plot_ly(y=temp, x=sumN) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
+
+## Version 7{.smaller}
+
+- birth: Eppley + density dependence
+- death: reverse gaussian
+
+::: panel-tabset
+
+### plot
+
+```{r}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+ff7 <- function(T, d_a, d_b, ...){
+  b <- b6(T, ...)
+  d <- d7(T, d_a, d_b)
+  return(b-d)
+}
+
+birth <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+d7 <- function(T, a=0, b=1) 1-dnorm(T, mean = a, sd=b)/dnorm(a,a,b)
+d_a = Tmin+Trange/2
+d_b = 2
+death <- ggplot()+
+  geom_function(fun = d7, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(a=d_a, b=d_b))+
+  labs(y="Death rate", x="Temperature")
+
+Rv7 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+
+
+grid.arrange(birth, death, Rv7, layout_matrix=rbind(c(1, 3),c(2, 3)), widths=c(1, 2))
+```
+
+### in 3D
+
+```{r}
+temp <- seq(Tmin-5, Tmax+5)
+sumN <- seq(0, 80)
+
+R <- outer(temp, sumN, ff7, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, d_a=d_a, d_b=d_b)
+
+plot_ly(y=temp, x=sumN) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
+
+## Version 8{.smaller}
+
+- birth: Eppley + density dependence
+- death: $x^2$
+
+::: panel-tabset
+
+### plot
+
+```{r}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+ff8 <- function(T, d_a, d_b, ...){
+  b <- b6(T, ...)
+  d <- d8(T, d_a, d_b)
+  return(b-d)
+}
+
+birth <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b6, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+d8 <- function(T, a=0, b=1) (T-a)^2/b
+d_a = Tmin+Trange/2
+d_b = 80
+death <- ggplot()+
+  geom_function(fun = d8, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(a=d_a, b=d_b))+
+  labs(y="Death rate", x="Temperature")
+
+Rv8 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff8, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff8, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff8, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff8, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1.5, 1))+
+  theme(legend.position = "top")
+
+
+grid.arrange(birth, death, Rv8, layout_matrix=rbind(c(1, 3),c(2, 3)), widths=c(1, 2))
+```
+
+### in 3D
+
+```{r}
+
+temp <- seq(Tmin-5, Tmax+5)
+sumN <- seq(0, 80)
+R <- outer(temp, sumN, ff8, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, d_a=d_a, d_b=d_b)
+
+plot_ly(y=temp, x=sumN) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+
+### contour
+
+```{r}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+:::
+
+## Version 9{.smaller}
+
+- birth: Gaussian + density dependence
+- death: exponential
+
+::: panel-tabset
+
+### plot
+
+```{r}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+ff9 <- function(T, d_a, d_b, ...){
+  b <- b7(T, ...)
+  d <- d6(T, d_a, d_b)
+  return(b-d)
+}
+
+b7 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0){
+  sd=3
+  r = dnorm(T, mean=Tmin+Trange/2, sd= sd) / dnorm(Tmin+Trange/2, mean=Tmin+Trange/2, sd= sd)
+  r = r - abs(r*sumN/KC(T, d=100))
+  return(ifelse(r < 0, 0, r))
+}
+
+birth <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b7, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+d_a = 0.01
+d_b = 0.1
+
+death <- ggplot()+
+  geom_function(fun = d6, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(a=d_a, b=d_b))+
+  labs(y="Death rate", x="Temperature")
+
+Rv9 <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff9, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff9, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff9, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff9, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       caption = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  coord_cartesian(ylim=c(-1, 1))+
+  theme(legend.position = "top")
+
+
+grid.arrange(birth, death, Rv9, layout_matrix=rbind(c(1, 3),c(2, 3)), widths=c(1, 2))
+```
+
+### in 3D
+
+```{r}
+temp <- seq(Tmin-5, Tmax+5)
+sumN <- seq(0, 80)
+
+R <- outer(temp, sumN, ff9, Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, d_a=d_a, d_b=d_b)
+
+plot_ly(y=temp, x=sumN) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'N'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
+
+## Comparison
+
+```{r}
+grid.arrange(Rv1, Rv2, RvB, Rv3)
+```
+
+---
+
+```{r}
+grid.arrange(Rv4, Rv5, Rv6, Rv7)
+```
+
+---
+
+```{r}
+grid.arrange(Rv8, Rv9)
+```
+
+## Density dependence {.smaller}
+
+- logistic: $r \left ( 1-\frac{\sum N}{K} \right )$
+- adjusted logistic: $r- \left | r\frac{\sum N}{K} \right |$
+- power: $r- | r | \left ( \frac{\sum N}{K} \right )^2$
+- sigmoid
+- $x^2$ 
+
+```{r}
+#| fig-align: center
+#| out-width: 100%
+
+logi <- function(N, K=50, r=1) r*(1-N/K)
+adjl <- function(N, K=50, r=1) r-abs( r*N/K ) 
+sigm <- function(N, K=50, r=1, smooth=0.2) 2*r/(1+exp( smooth*(N-K) ))-r
+pow <- function(N, K=50, r=1, smooth=2) r-(N/K)^smooth*abs(r)
+
+ggplot(data.frame(K=c(50, 100)))+
+  geom_function(aes(linetype="logistic", color="2"), fun=logi, xlim=c(0, 100), args=list(r=2))+
+  geom_function(aes(linetype="logistic", color="1"), fun=logi, xlim=c(0, 100))+
+  geom_function(aes(linetype="logistic", color="-1"), fun=logi, xlim=c(0, 100), args=list(r=-1))+
+  geom_function(aes(linetype="adj logistic", color="2"), fun=adjl, xlim=c(0, 100), args=list(r=2))+
+  geom_function(aes(linetype="adj logistic", color="1"), fun=adjl, xlim=c(0, 100))+
+  geom_function(aes(linetype="adj logistic", color="-1"), fun=adjl, xlim=c(0, 100), args=list(r=-1))+
+  geom_function(aes(linetype="sigmoid", color="1"), fun=sigm, xlim=c(0, 100))+
+  geom_function(aes(linetype="sigmoid", color="-1"), fun=sigm, xlim=c(0, 100), args=list(r=-1))+
+  geom_function(aes(linetype="sigmoid", color="2"), fun=sigm, xlim=c(0, 100), args=list(r=2))+
+  geom_function(aes(linetype="power", color="1"), fun=pow, xlim=c(0, 100))+
+  geom_function(aes(linetype="power", color="-1"), fun=pow, xlim=c(0, 100), args=list(r=-1))+
+  geom_function(aes(linetype="power", color="2"), fun=pow, xlim=c(0, 100), args=list(r=2))+
+  scale_linetype_discrete(name="function")+
+  scale_color_discrete(name="r=")+
+  labs(x="Population size (N)", y="dN/dt")+
+  coord_cartesian(ylim = c(-3, 2))
+```
+
+## Holling-2 {.smaller .scrollable}
+
+:::: {.columns}
+::: {.column width="60%"}
+
+(@) $R$ is semi-chemostat: let's assume they are at $K_R(T)$
+
+:::
+::: {.column width="40%"}
+
+```{r}
+curve(KC(x, d=100), from=0, to=40, xlab="Temperature", ylab=bquote(K[R]))
+```
+
+:::
+::::
+
+:::: {.columns}
+::: {.column width="60%"}
+
+(@) all $N_g$s are feeding on them with Holling-2 functional response, with attack rate $a$ and handling time $h$ $\to r_{max}(R)$
+
+:::
+::: {.column width="40%"}
+
+```{r}
+holling2 <- function(resource, attack=0.2, handling=0.4) attack * resource/(1 + attack * handling * resource)
+curve(holling2(x), from=0, to=40, xlab=bquote(K[R]), ylab=bquote(r[max]))
+```
+
+:::
+::::
+
+:::: {.columns}
+::: {.column width="60%"}
+
+(@) temperature acts on $r_{max}$, according to their genotype $g$ $\to b_g(T, r_{max})$
+
+:::
+::: {.column width="40%"}
+
+```{r}
+A=10
+b=1.9
+
+compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+ggplot()+
+  stat_function(fun = b6, 
+                geom="area", fill="lightgreen",
+                args=list(Tmin=20, Tmax=30, Trange=10, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(15, 35) )+
+  geom_function(fun = b6, 
+                args=list(Tmin=20, Tmax=30, Trange=10, b=b, compensation=compensation, sumN = 0), 
+                xlim = c(15, 35) )+
+  annotate(geom = "label", x=26, y=0.1, label="A == r[max] * c", parse=T, size=6)+
+  labs(x="Temperature", y = bquote(b[g]))+
+  coord_cartesian(ylim=c(-0.2, 0.4))+
+  theme(legend.position = "none")
+```
+
+:::
+::::
+
+:::: {.columns}
+::: {.column width="60%"}
+
+(@) temperature acts on $\delta_g$
+
+:::
+::: {.column width="40%"}
+
+```{r}
+d10 <- function(T, a=1, b=-0.1) a*exp(T*b)
+ggplot()+
+  geom_function(fun = d10, xlim=c(Tmin-Trange/10,Tmax+Trange/10))+
+  labs(y=bquote(delta[g]), x="Temperature")
+```
+
+:::
+::::
+
+(@) $r_g = b_g -\delta_g$, $\frac{dN_g}{dt} = N_g r_g - N_g h_{sleep} + D_g h_{wake}$
+
+
+## plot
+
+```{r}
+d9 <- function(T, x1=0, curve1=1, x2=0, curve2=0) 1/(1+exp(-(T-x1)*curve1)) + 1/(1+exp((T-x2)*curve2))
+
+#ggplot()+geom_function(fun= d9, xlim=c(-10, 50), args=list(x1=30, curve1=0.25, x2=-25, curve2=0.2))+coord_cartesian(ylim = c(0, 1))
+
+ff10 <- function(T, d_a, d_b, ...){
+  b <- b10(T, ...)
+  d <- d9(T, x1=d_a, curve1=d_b, x2=-25, curve2=0.2)
+  return(b-d)
+}
+
+r10 <- function(T, Tmin, Tmax, Trange, b, compensation){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  return(ifelse(r < 0, 0, r))
+}
+
+KR10 <- function(T, sumN=0, K=40, d=100){
+  KR <- KC(T, d)
+  KR * (pmax(0, 1-sumN/K))
+}
+
+b10 <- function(T, b=1.9, attack = 0.2, handling = 0.4, a_comp=1, compensation = NA, sumN=0, ...){
+  KR <- KR10(10, sumN)
+  rmax <- holling2(KR, attack=attack, handling=handling)
+  
+  A=rmax*a_comp
+  compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+
+  return(r10(T, b=b, compensation=compensation, ...))
+}
+
+```
+
+
+```{r, eval=T}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+d_a = 50
+d_b = 0.15
+
+Tmin = 20
+Trange = 20
+Tmax = Tmin+Trange
+
+reso <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = KR10, 
+                args=list(sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Resource"
+       )+
+  #coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+birth <- 
+  ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "none", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+death <- ggplot()+
+  geom_function(fun = d9, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(x1=d_a, curve1=d_b, x2=-25, curve2=0.2))+
+  coord_cartesian(ylim=c(0, 1))+
+  labs(y="Death rate", x="Temperature")
+
+Rv10 <- ggplot()+
+  geom_rect(aes(xmin=Tmin, xmax=Tmax, ymin=-Inf, ymax=Inf), fill="red", alpha=0.1) +
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       subtitle = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-1, 1))+
+  theme(legend.position = "none")
+
+
+plot_grid(plot_grid(reso, birth, death, ncol=1, align="v"), Rv10, ncol=2, rel_widths = c(1, 2))
+```
+
