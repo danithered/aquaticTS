@@ -43,18 +43,24 @@ library(geodata)
 
 ------------------------------------------------------------------------
 
-```{r load_climate_data}
-#f <- "*EUR-44*"
-#UDG.datasets(pattern = f)
+```{r load_climate_data, cache=T}
+b <- xfun::cache_rds({
+  #f <- "*EUR-44*"
+  #UDG.datasets(pattern = f)
+  
+  #bio10 <- cmip6_world("CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+  biomin <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+  #bioavg <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tavg", res=10, path=tempdir())
+  biomax <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmax", res=10, path=tempdir())
+  #b <- bio10$tmin01
+  #bc <- crop(b, ext(-30, 50, 30, 80))
+  
+  plot(crop(biomax, ext(-11, 35, 42, 71)))
 
-#bio10 <- cmip6_world("CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
-biomin <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
-#bioavg <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tavg", res=10, path=tempdir())
-biomax <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmax", res=10, path=tempdir())
+  cbind( (biomin[1447]), (biomax[1447]) )
+})
 
-#b <- bio10$tmin01
-#bc <- crop(b, ext(-30, 50, 30, 80))
-plot(crop(biomax, ext(-11, 35, 42, 71)))
+
 ```
 
 ## In time
@@ -67,7 +73,6 @@ plot(crop(biomax, ext(-11, 35, 42, 71)))
 #barplot(unlist(biomax[1447]))
 
 
-b <- cbind( (biomin[1447]), (biomax[1447]) )
 b2 = b |> 
   #select( !starts_with("no_A", ignore.case = F)) |> 
   pivot_longer(cols= everything(), names_to=c("parameter", "month"), values_to = "val", names_pattern = "wc2.1_30s_(.*)_(.*)")
@@ -80,7 +85,266 @@ ggplot(b3, aes(x=month))+
 
 ```
 
-## How to model temperature?
+
+# Climate model by
+
+## The model {.smaller}
+
+$$C \frac{dT}{dt}=Q^* \sin{\omega t} + Q_0-B T$$
+
+| sign     | meaning | value |
+|:---------|:--------|------:
+|$\omega$  | wavelength | $2\pi$ |
+| $Q^*$    | amplitude of the seasonal variations | |
+| $Q_0$    | annual mean insolation | |
+| $B$      | longwave radiative feedback in our system: a measure of how efficiently a warm anomaly is radiated away to space | 2 $\frac{W}{m^2K}$ | 
+| $C$      | heat capacity of the whole column | ?? $\frac{J} {m^2 K}$ |
+| $\hat C$ | heat capacity | ?? |
+| $T_0$    | annual mean temperature | variable |  
+| $T^*$    | annual temperature amplitude | |
+
+: {tbl-colwidths="[10, 75 ,10]"}
+
+## Mean and amplitude {.smaller}
+
+- Mean: 
+
+    $$T_0=\frac{Q_0}{B}$$
+- Amplitude: depends on heat capacity $\left ( \hat C = \frac{C \omega}{B} \right )$
+      
+  - general solution 
+  
+      $$T^* = \frac{Q^*}{B}\frac{1}{(1+\hat C^2) \cos {(\arctan{\hat C})}}$$
+  
+  - if $C=0 \to T_* = Q^* / B$
+  - in shallow water $\hat C << 1 \to T^* = \frac{Q^*}{B}(1-\hat C)$
+
+## Plot
+
+```{r}
+func2 <- function(t, state, parameters) {
+  with(as.list(c(state, parameters )), {
+    amp <- Tpar[max(which(Tpar$tfrom <= t)),"amp"]
+    mean <- Tpar[max(which(Tpar$tfrom <= t)),"mean"]
+    
+    dX=(amp * sin(omega * (t + delay)) + mean - (B*X) )/C
+    
+    w = t > et$min & t < et$max
+    if( any(w) ) {
+      #cat(paste(round(t, 3), round(X, 2), round(dX, 2), "\n") )
+      dX <- dX * et[w, "times"]
+    }
+    list(dX, amp=amp, mean=mean)
+  })
+}
+
+state <- c(X = 10)
+times = seq(0, 10, by = 0.01)
+parameters = list(omega= 2*pi, delay=0, B= 2, C=1)
+parameters$Tpar <- data.frame(tfrom=0, amp= 10, mean=20)
+
+#errors
+length=0.1
+no_errors = 0
+at = runif(no_errors, 0, max(times))
+parameters$et <- data.frame(min=at-length/2, max=at+length/2, times=rnorm(length(at), sd=6))
+
+out2 <- ode(y = state, times = times, func = func2, parms = parameters)
+ggplotly(ggplot(as.data.frame(out2), aes(x=time, y=X))+
+  geom_line()+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none"))
+
+
+#parameters$omega*t=0 #spring equinox
+#parameters$omega*t=pi/2 #summer solistice
+#parameters$omega*t=pi #fall equinox
+#parameters$omega*t=3*pi/2 #winter solictice
+
+T0 = (parameters$mean - parameters$A)/parameters$B # mean annual temperature
+heat_capacity = parameters$C * parameters$omega/parameters$B 
+sigma = atan(heat_capacity)
+#parameters$amp/parameters$B #for C = 0
+parameters$amp/parameters$B/(1+heat_capacity^2)/cos(atan(heat_capacity)) # general solution
+#parameters$amp/parameters$B * (1-heat_capacity) # heat_capacity << 1 ~ shallow water 
+```
+
+## Scale it {.smaller}
+
+```{r}
+print_params <- function(..., knitr_params=list(row.names=F)){
+  varnames=lapply(substitute(list(...))[-1], deparse)
+  x <- list(...)
+  names(x) <- varnames
+  
+  #unlist lists
+  l <- sapply(x, is.list)
+  for(w in which(l)){
+    for(e in 1:length(x[[w]]) ){
+      x[[names(x[[w]][e])]] <- unname(unlist(x[[w]][e]))
+    }
+  }
+  x <- x[-which(l)]
+  
+  # concat stuff
+  x <- lapply(x, function(x) paste(x, sep=", ", collapse = "; "))
+  
+  # make table
+  table <- data.frame(parameter = names(x), value = unlist(x))
+  
+  # print stuff
+  knitr_params$x <- table
+  do.call(knitr::kable, knitr_params)
+}
+```
+
+::: panel-tabset
+
+### plot
+
+```{r}
+heat_capacity = 0.01
+
+parameters$C = heat_capacity * parameters$B/parameters$omega
+
+
+times <- seq(0, 10, by = 0.01)
+b3_rep <- b3 |> 
+  uncount(max(times)+1, .id="period") |>
+  mutate(month=as.numeric(month)/12 + period-1-1/3) |>
+  arrange(month)
+b3_s <- b3_rep |>
+  summarise(spline_x = spline(month, tmin)[["x"]], 
+         spline_hi = spline(month, tmax)[["y"]], 
+         spline_lo = spline(month, tmin)[["y"]])
+
+
+upper_max = max(b3$tmax)
+upper_min = min(b3$tmax)
+lower_max = max(b3$tmin)
+lower_min = min(b3$tmin)
+
+tmin_range = (lower_max - lower_min)/2
+tmax_range = (upper_max - upper_min)/2
+amp_min = (lower_max - upper_min)/2
+amp_max = (upper_max - lower_min)/2
+
+```
+
+```{r}
+#T0 = 20
+#amplitude = 15 #14.2 lehet max
+# if( amplitude < max(tmin_range, tmax_range) ){ 
+#   if( amplitude < min(tmin_range, tmax_range)){ #pici
+#     T0 = runif(1, max(b3$tmin) - amplitude, min(b3$tmax) + amplitude) # max is above max(tmin) and min is belove min(tmax)
+#   } else { # kozepes
+#     T0 = runif(1, 
+#                max(max(b3$tmin) - amplitude, min(b3$tmin) + amplitude), # max is above max(tmin) and min is above min(tmin)
+#                min(min(b3$tmax) + amplitude, max(b3$tmax) - amplitude) ) #  min is belove min(tmax) and max is belove max(tmax)
+#   }
+# } else { #nagy
+#   T0 = runif(1, min(b3$tmin) + amplitude, max(b3$tmax) - amplitude) # ha nagy
+# }
+#T0 = min(b3$tmin) + amplitude
+
+#T0 = 3.823529
+
+```
+
+```{r}
+#| fig-align: center
+
+#get random amplitude and T0
+parameters$Tpar <- data.frame(tfrom=seq(min(times), max(times), length.out=6), mean = NA, amp = NA, amplitude= NA, T0 = NA )
+#parameters$Tpar <- data.frame(tfrom=0, mean = NA, amp = NA, amplitude= NA, T0 = NA )
+
+for(row in 1:nrow(parameters$Tpar)){
+  #row=1
+  amplitude = runif(1, amp_min, amp_max)
+  T0 = runif(1, 
+             ifelse(tmin_range > amplitude, lower_max - amplitude, lower_min + amplitude), 
+             ifelse(tmax_range > amplitude, upper_min + amplitude, upper_max - amplitude))
+  
+  # min + r*(max-min)
+  
+  
+  
+  parameters$Tpar[row, "T0"] = T0
+  parameters$Tpar[row, "amplitude"] = amplitude
+  parameters$Tpar[row, "mean"] = T0 * parameters$B
+  parameters$Tpar[row, "amp"] = parameters$B * amplitude / (1 - heat_capacity) 
+}
+
+
+out2 <- ode(y = state, times = times, func = func2, parms = parameters)
+
+ggplot()+
+  #geom_ribbon(data=b3_rep, aes(x=month, ymin=tmin, ymax=tmax), fill="coral")+
+  geom_ribbon(data=b3_s, aes(x=spline_x, ymax=spline_hi, ymin=spline_lo), fill="coral")+
+  geom_line(data=as.data.frame(out2), aes(x=time, y=X, color=amp), linewidth=1.5)+
+  coord_cartesian(xlim = range(times))+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none")
+
+  
+```
+
+### parameters
+
+```{r, cache=F}
+knitr::kable(parameters$Tpar)
+print_params(amp_min, amp_max, heat_capacity, parameters)
+```
+
+:::
+
+## Extreme temperature deviations
+
+```{r}
+#get a random amp and mean
+amplitude = runif(1, amp_min, amp_max)
+T0 = runif(1, 
+           ifelse(tmin_range > amplitude, lower_max - amplitude, lower_min + amplitude), 
+           ifelse(tmax_range > amplitude, upper_min + amplitude, upper_max - amplitude))
+  
+# min + r*(max-min)
+  
+  
+parameters$Tpar <- data.frame(tfrom=0, 
+                              mean = T0 * parameters$B, 
+                              amp = parameters$B * amplitude / (1 - heat_capacity) , 
+                              amplitude= amplitude, 
+                              T0 = T0 )
+
+times <- seq(0, 5, by = 0.01)
+```
+
+
+```{r}
+set.seed(10)
+
+#get_errors
+length=0.01
+no_errors = 4
+at = runif(no_errors, 0, max(times))
+parameters$et <- data.frame(min=at-length/2, max=at+length/2, times=rnorm(length(at), sd=0.5))
+
+
+out2 <- ode(y = state, times = times, func = func2, parms = parameters)
+
+ggplot()+
+  #geom_ribbon(data=b3_rep, aes(x=month, ymin=tmin, ymax=tmax), fill="coral")+
+  geom_ribbon(data=b3_s, aes(x=spline_x, ymax=spline_hi, ymin=spline_lo), fill="coral")+
+  geom_vline(xintercept=at, color="red")+
+  geom_line(data=as.data.frame(out2), aes(x=time, y=X), linewidth=1.5)+
+  coord_cartesian(xlim = range(times))+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none")
+
+```
+
+
+## How to model temperature? {visibility="hidden"}
 
 -   Sinus function in literature
 
@@ -123,7 +387,7 @@ ggplot(as.data.frame(out), aes(x=time, y=X))+
 
 ```
 
-## Interannual variations
+## Interannual variations {visibility="hidden"}
 
 ```{r}
 state <- c(X = 10)
@@ -148,114 +412,8 @@ ggplot(as.data.frame(out), aes(x=time, y=X, color=Tr))+
 
 ```
 
-# Climate model by
 
-## The model {.smaller}
-
-$$C \frac{dT}{dt}=Q^* \sin{\omega t} + Q_0-B T$$
-
-| sign     | meaning | value |
-|:---------|:--------|------:
-|$\omega$  | wavelength | $2\pi$ |
-| $Q^*$    | amplitude of the seasonal variations | |
-| $Q_0$    | annual mean insolation | |
-| $B$      | longwave radiative feedback in our system: a measure of how efficiently a warm anomaly is radiated away to space | 2 $\frac{W}{m^2K}$ | 
-| $C$      | heat capacity of the whole column | ?? $\frac{J} {m^2 K}$ |
-| $\hat C$ | heat capacity | ?? |
-| $T_0$    | annual mean temperature | variable |  
-| $T^*$    | annual temperature amplitude | |
-
-: {tbl-colwidths="[10, 75 ,10]"}
-
-## Mean and amplitude {.smaller}
-
-- Mean: 
-
-    $$T_0=\frac{Q_0}{B}$$
-- Amplitude: depends on heat capacity $\left ( \hat C = \frac{C \omega}{B} \right )$
-      
-  - general solution 
-  
-      $$T^* = \frac{Q^*}{B}\frac{1}{(1+\hat C^2) \cos {(\arctan{\hat C})}}$$
-  
-  - if $C=0 \to T_* = Q^* / B$
-  - in shallow water $\hat C << 1 \to T^* = \frac{Q^*}{B}(1-\hat C)$
-
-## Plot
-
-```{r}
-func2 <- function(t, state, parameters) {
-  with(as.list(c(state, parameters )), {
-    list(dX=(amp * sin(omega * t) + mean - (B*X) )/C )
-  })
-}
-parameters = list(amp= 10, mean=20, omega= 2*pi, B= 2, C=1)
-out2 <- ode(y = state, times = seq(0, 10, by = 0.01), func = func2, parms = parameters)
-ggplotly(ggplot(as.data.frame(out2), aes(x=time, y=X))+
-  geom_line()+
-  labs(x="Time", y="Temperature")+
-  theme(legend.position = "none"))
-
-
-#parameters$omega*t=0 #spring equinox
-#parameters$omega*t=pi/2 #summer solistice
-#parameters$omega*t=pi #fall equinox
-#parameters$omega*t=3*pi/2 #winter solictice
-
-T0 = (parameters$mean - parameters$A)/parameters$B # mean annual temperature
-heat_capacity = parameters$C * parameters$omega/parameters$B 
-sigma = atan(heat_capacity)
-#parameters$amp/parameters$B #for C = 0
-parameters$amp/parameters$B/(1+heat_capacity^2)/cos(atan(heat_capacity)) # general solution
-#parameters$amp/parameters$B * (1-heat_capacity) # heat_capacity << 1 ~ shallow water 
-```
-
-## Scale it
-
-```{r}
-print_params <- function(...){
-  x <- list(...)
-  
-  #unlist lists
-  l <- sapply(x, is.list)
-  for(w in which(l)){
-    for(e in 1:length(x[[w]]) ){
-      x[[names(x[[w]][e])]] <- unname(unlist(x[[w]][e]))
-    }
-  }
-  x <- x[-which(l)]
-  
-  # concat stuff
-  
-  # make table
-  table <- data.frame(parameter = names(x), value = unlist(x))
-  
-  # print stuff
-}
-```
-
-```{r}
-heat_capacity = 0.01
-T0 = 20
-amplitude = 15
-
-parameters$C = heat_capacity * parameters$B/parameters$omega
-parameters$mean = T0 * parameters$B
-parameters$amp = parameters$B * amplitude / (1 - heat_capacity) 
-
-out2 <- ode(y = state, times = seq(0, 5, by = 0.01), func = func2, parms = parameters)
-ggplotly(ggplot(as.data.frame(out2), aes(x=time, y=X))+
-  geom_line()+
-  labs(x="Time", y="Temperature")+
-  theme(legend.position = "none"))
-
-```
-
-let $\hat C = 0.01 \text{ and } C=`r parameters$C`$
-
-
-
-## Extreme temperature deviations
+## Extreme temperature deviations {visibility="hidden"}
 
 ```{r}
 state <- c(X = 10)
