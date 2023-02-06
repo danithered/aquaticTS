@@ -747,8 +747,8 @@ ggplot()+
 
 ## Temperature depedence of dormancy
 
-$$t_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
-$$t_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
+$$h_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
+$$h_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
 
 ```{r}
 #| fig-align: center
