@@ -5,6 +5,7 @@
 #include <boost/array.hpp>
 #include <memory>
 #include <randomgen.h>
+#include "CLI/CLI.hpp"
 
 using namespace std;
 using namespace boost::numeric::odeint;
@@ -263,8 +264,17 @@ public:
 
 int main()
 {
+	// CLI init
+	CLI::App cli{"This is an ODE simulation for..."};
+
 	// model parameters
 	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, mean_Tshift = 10, mean_Tr = 20; //settings
+	
+	// parse CLI
+	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0));
+	cli.set_config("--parameters");
+	CLI11_PARSE(cli);
+	std::cout << cli.config_to_str(true,false);
 																	      
 	// inic rng
 	randomszam_inic(154, r);

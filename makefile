@@ -7,7 +7,7 @@ SRCDIR=./src
 CC=g++
 C=gcc
 
-CFLAGS=-I$(IDIR) `pkg-config --cflags gsl` -ggdb -fexceptions -Wall -pg -no-pie # for testing
+CFLAGS=-I$(IDIR) -I./src/CLI11/include/ `pkg-config --cflags gsl` -ggdb -fexceptions -Wall -pg -no-pie # for testing
 #CFLAGS=-I$(IDIR) `pkg-config --cflags gsl` -Ofast # for stuff
 
 LIBS= -lboost_system -lm `pkg-config --libs gsl` -fopenmp
