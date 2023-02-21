@@ -12,10 +12,10 @@ CFLAGS=-I$(IDIR) -I./src/CLI11/include/ `pkg-config --cflags gsl` -ggdb -fexcept
 
 LIBS= -lboost_system -lm `pkg-config --libs gsl` -fopenmp
 
-_DEPS = randomgen.h
+_DEPS = randomgen.h model.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = diffe.o randomgen.o
+_OBJ = diffe.o model.o randomgen.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
