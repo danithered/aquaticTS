@@ -11,14 +11,15 @@ Model::Model(std::vector<double> & Tranges,
 	sumNperK(0.0), K(_K), Psleep(_Psleep), Pwake(_Pwake), PwakePlusDelta(_Pwake + _delta){
 
 		//start indexing
-		unsigned int g = 1; //first is temperature (N[0] = T)
+		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
 
 		//add functions
 		//for(auto Trangei = Tranges.begin(); Trangei != Tranges.end(); ++Trangei) for(auto Tmini = Tmins.begin(); Tmini != Tmins.end(); ++Tmini){
 		for(unsigned int i = 0; i < Tranges.size(); ++i){
-			/* N[g] - awake population
+			/* N[ 0 ] - temperature
+			 * N[ 1 ] - resource
+			 * N[g] - awake population
 			 * N[g+1] - dormant population
-			 * N[ 0 ] - temperature
 			 * */ 
 
 			//compute genotype specific variables
@@ -112,16 +113,16 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 		}
 	}
 
+	// compute resource
+	dxdt[1] = 0;
+
 	//compute sumN
 	double sumN = 0.0;
-	for(unsigned int i = 1, max = x.size(); i < max; i += 2) sumN += x[i];
+	for(unsigned int i = 2, max = x.size(); i < max; i += 2) sumN += x[i];
 	sumNperK = sumN / K;
 
 	//compute awake pop dervatives
 	for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);
-
-	//compute dormant pop derivatives
-	//for(auto f = func_sleeping.begin(); f != func_sleeping.end(); f++) (*f)(x, dxdt, t);
 
 }
 

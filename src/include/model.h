@@ -14,13 +14,31 @@ using namespace boost::numeric::odeint;
 
 typedef std::vector< double> state_type;
 
+ /// Weather parameters 
+ /** 
+  * for a given time period weather can be described with this two variables.
+  * The periodicity will be implemented by the nature of sinusoid attractor 
+  */
 struct TempParams {
+	/// param1
 	const double Tshift;
+	/// param2
 	const double Tr;
 
 	TempParams(double p1, double p2): Tshift(p1), Tr(p2){};
 };
 
+/// The differential equation model
+/**
+ * The differential equation will be evaluated by the boost ode solver implementation
+ * The inputs are `t`, the time and `x`, the state. It should compute `dxdt`, the derivative.
+ * The lines of `x` and `dxdt` represent the followings
+ *
+ * - **0**: Temperature
+ * - **1**: Resource
+ * - **2+2n**: Awaken individuals
+ * - **3+2n**: Dormant individuals
+ */
 class Model {
 	private:
 		std::vector<std::function< void(const state_type&, state_type&, double) >> func_awake;
@@ -32,11 +50,7 @@ class Model {
 		const double Pwake;
 		const double PwakePlusDelta;
 		
-		//std::vector<double> Tr;	//Tr values in different times
-		//std::vector<double> Tshift;	//Tshift values in different times
-		//std::vector<double> Tr_times; //When to switch Tr - solution is lame, should have used std::map
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
-		
 		std::map<double, double> extreme;
 
 
