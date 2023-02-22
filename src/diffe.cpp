@@ -12,7 +12,8 @@ using namespace boost::numeric::odeint;
 
 int main(){
 	// model parameters
-	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, mean_Tshift = 10, mean_Tr = 20; //settings
+	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, heat_capacity = 0.01; //settings
+	std::string climate_file;
 	
 	// parse CLI
 	CLI::App cli{"This is an ODE simulation for..."};
@@ -26,8 +27,8 @@ int main(){
 	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0));
 	cli.add_option("-a,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::Range(0.0, 500.0));
 	cli.add_option("-d,--inicDormant", inicDormant, "Initial value for all of dormant genotypes")->check(CLI::Range(0.0, 500.0));
-	cli.add_option("-s,--mean_Tshift", mean_Tshift, "temperature parameter")->check(CLI::Range(0.0, 500.0));
-	cli.add_option("-t,--mean_Tr", mean_Tr, "temperature parameter")->check(CLI::Range(0.0, 500.0));
+	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::Range(0.0, 500.0));
+	cli.add_option("-C,--climate_file", climate_file, "file for storing climate data, according to format: ..."); // make it compulsori!
 	cli.set_config("--parameters");
 
 	CLI11_PARSE(cli);
@@ -49,6 +50,7 @@ int main(){
 	std::vector<double> Tranges, Tmins;
 	state_type x; // initial conditions
 	x.push_back(inicTemp);
+	x.push_back(inicR);
 
 	for(double Trange = fromTrange; Trange <= toTrange; Trange += byTrange) for(double Tmin = fromTmin; Tmin <= toTmin; Tmin += byTmin){
 		Tranges.push_back(Trange);
@@ -60,11 +62,14 @@ int main(){
 	output_types.close();
 
 	// inic model
-	Model m(Tranges, Tmins);
-	m.setClimate(mean_Tshift, mean_Tr);
-	ode_wrapper mod(&m);
+	Model m(Tranges, Tmins, heat_capacity);
+
+	// set climate
+	std::ifstream climate(climate_file);
+	m.setClimate(climate_file, 1, 25.0);
 	
 	// use ode
+	ode_wrapper mod(&m);
 	//integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
 	//integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
 	integrate_const( runge_kutta4< state_type >(), mod , x , 0.0 , 25.0 , 0.1 , write  );

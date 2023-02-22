@@ -7,6 +7,8 @@
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
 #include "randomgen.h"
 
 using namespace std;
@@ -20,12 +22,12 @@ typedef std::vector< double> state_type;
   * The periodicity will be implemented by the nature of sinusoid attractor 
   */
 struct TempParams {
-	/// param1
-	const double Tshift;
-	/// param2
-	const double Tr;
+	/// \f$Q_0\f$ annual mean insolation
+	const double Qmean;
+	/// \f$Q^*\f$ amplitude of the seasonal variation
+	const double Qamp;
 
-	TempParams(double p1, double p2): Tshift(p1), Tr(p2){};
+	TempParams(double p1, double p2): Qmean(p1), Qamp(p2){};
 };
 
 /// The differential equation model
@@ -49,6 +51,10 @@ class Model {
 		const double Psleep;
 		const double Pwake;
 		const double PwakePlusDelta;
+
+		const double omega;
+		const double B;
+		const double C;
 		
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
 		std::map<double, double> extreme;
@@ -59,14 +65,17 @@ class Model {
 
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
+				double heat_capacity,
 				const double A=1, 
 				const double b=1.9, 
 				const double _K=100, 
 				const double _Psleep = 0.1, 
 				const double _Pwake = 0.1, 
-				const double _delta = 0.1); 
+				const double _delta = 0.1,
+				const double _omega = 2 * std::pi); 
 
 		void setClimate(double mean_Tshift, double mean_Tr, double sd_Tshift=0, double sd_Tr=0, double length=0, unsigned int no_intervals = 1);
+		void setClimate(std::ifstream & file, unsigned int no_intervals, double length);
 
 		void setExtreme(unsigned int no, double until, double sd=1);
 

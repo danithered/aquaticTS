@@ -1,14 +1,18 @@
+#include <fstream>
 #include <model.h>
+#include <stdexcept>
 
 Model::Model(std::vector<double> & Tranges, 
 		std::vector<double> & Tmins, 
+		double heat_capacity,
 		const double A, 
 		const double b, 
 		const double _K, 
 		const double _Psleep, 
 		const double _Pwake, 
-		const double _delta): 
-	sumNperK(0.0), K(_K), Psleep(_Psleep), Pwake(_Pwake), PwakePlusDelta(_Pwake + _delta){
+		const double _delta, 
+		const double _omega): 
+	sumNperK(0.0), K(_K), Psleep(_Psleep), Pwake(_Pwake), PwakePlusDelta(_Pwake + _delta, omega(_omega), B(2.0), C(heat_capacity * B / _omega){
 
 		//start indexing
 		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
@@ -63,15 +67,47 @@ Model::Model(std::vector<double> & Tranges,
 		}
 }
 
-void Model::setClimate(double mean_Tshift, double mean_Tr, double sd_Tshift, double sd_Tr, double length, unsigned int no_intervals){
-	if(no_intervals > 1){
-		double until = length;
-		while(no_intervals--) {
-			Tpars.emplace(until, TempParams(gsl_ran_gaussian(r, sd_Tshift) + mean_Tshift, gsl_ran_gaussian(r, sd_Tr) + mean_Tr));
-			until += length;
+void Model::setClimate(std::ifstream & file, unsigned int no_intervals, double length){
+	// get climate data
+	double lower_min = std::numeric_limits<double>::max(), lower_max = std::numeric_limits<double>::min();
+	double upper_min = lower_min, upper_max = lower_max;
+	{
+		if(!file.is_open()) {
+			std::cerr << "ERROR: setClimate: file can not be opened!" << std::endl;
+			return;
 		}
-	} else { // only one value
-		Tpars.emplace(0, TempParams(mean_Tshift, mean_Tr) );
+
+		std::string line;
+
+		while(std::getline(file, line)){
+			std::string word;
+			double tval;
+			std::istringstream linestream(line);
+
+			if(!linestream >> word) throw std::runtime_error("Incorrect file format! It should be: month tmin tmax, without header"); // number of month - ignore
+			if(!linestream >> tval) throw std::runtime_error("Incorrect file format! It should be: month tmin tmax, without header"); // tmin
+			if(tval < lower_min) lower_min = tval;
+			if(tval > lower_max) lower_max = tval;
+			if(!linestream >> tval) throw std::runtime_error("Incorrect file format! It should be: month tmin tmax, without header"); // tmax
+			if(tval < upper_min) upper_min = tval;
+			if(tval > upper_max) upper_max = tval;
+		}
+	}
+	double tmin_range = (lower_max - lower_min)/2, tmax_range = (upper_max - upper_min)/2, amp_min = (lower_max - upper_min)/2, amp_range = (upper_max + upper_min - lower_max - lower_min)/2;
+
+	double until = length;
+	const double one_minus_heatcap = 1 - heat_capacity;
+	while(no_intervals--) {
+		// get random amplitude
+		double amplitude = gsl_rng_uniform(r, amp_range) + amp_min;
+
+		// get random mean
+		double T0min = (tmin_range > amplitude)?(lower_max - amplitude):(lower_min + amplitude), T0max = (tmax_range > amplitude)?(upper_min + amplitude):(upper_max - amplitude);
+		double T0 = gsl_rng_uniform(r, T0max-T0min) + T0min;
+
+		// emplace them
+		Tpars.emplace(until, TempParams(T0 * B, B * amplitude / one_minus_heatcap));
+		until += length;
 	}
 }
 
@@ -93,25 +129,13 @@ void Model::setExtreme(unsigned int no, double until, double sd){
 
 void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	//compute temperature
-	//unsigned int tr = 0;
-	//for(tr = Tr_times.size(); tr != 0 && Tr_times[tr] > t; --tr){}
-	//dxdt[0] = Tr[tr] * std::cos(t) + Tshift[tr] - x[0];
-	
 	TempParams *Tpar = &(Tpars.begin()->second);
 	if(Tpars.size() > 1) {
 		double tcopy = t;
 		while(tcopy > Tpars.rbegin()->first) tcopy -= Tpars.rbegin()->first;
 		Tpar = &(Tpars.upper_bound(t)->second);
 	}
-	dxdt[0] = Tpar->Tr * std::cos(t) + Tpar->Tshift - x[0];
-	
-	//extreme weather
-	for(auto extr = extreme.begin(); extr != extreme.end(); ++extr){
-		if( std::abs(extr->first - t) < 0.05 ){
-			dxdt[0] = dxdt[0] * extr->second;
-			break;
-		}
-	}
+	dxdt[0] = (Tpar->Qamp * std::sin(omega * t) + Tpar->Qmean - (B*x[0]) )/C;
 
 	// compute resource
 	dxdt[1] = 0;
