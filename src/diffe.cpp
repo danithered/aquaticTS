@@ -12,7 +12,7 @@ using namespace boost::numeric::odeint;
 
 int main(){
 	// model parameters
-	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicAwake = 0.0, inicDormant = 10.0, heat_capacity = 0.01; //settings
+	double fromTrange=5, toTrange=10, byTrange=1, fromTmin=10, toTmin=20, byTmin=1, inicTemp = 20.0, inicR=10.0, inicAwake = 0.0, inicDormant = 10.0, heat_capacity = 0.01; //settings
 	std::string climate_file;
 	
 	// parse CLI
@@ -29,6 +29,7 @@ int main(){
 	cli.add_option("-d,--inicDormant", inicDormant, "Initial value for all of dormant genotypes")->check(CLI::Range(0.0, 500.0));
 	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::Range(0.0, 500.0));
 	cli.add_option("-C,--climate_file", climate_file, "file for storing climate data, according to format: ..."); // make it compulsori!
+	cli.add_option("-P,--inicR", inicR, "initial resource"); // make it compulsori!
 	cli.set_config("--parameters");
 
 	CLI11_PARSE(cli);
@@ -66,7 +67,7 @@ int main(){
 
 	// set climate
 	std::ifstream climate(climate_file);
-	m.setClimate(climate_file, 1, 25.0);
+	m.setClimate(climate, 1, 25.0);
 	
 	// use ode
 	ode_wrapper mod(&m);

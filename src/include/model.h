@@ -47,6 +47,8 @@ class Model {
 		//std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 		
 		double sumNperK;
+		const double heat_capacity;
+		const double one_minus_heatcap;
 		const double K;
 		const double Psleep;
 		const double Pwake;
@@ -61,7 +63,7 @@ class Model {
 
 
 	public:
-		Model(const Model& orig): K(orig.K), Psleep(orig.Psleep), Pwake(orig.Pwake), PwakePlusDelta(orig.PwakePlusDelta) {std::cerr << "Copy constructor called" << std::endl;}
+		Model(const Model& orig);
 
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
@@ -72,7 +74,7 @@ class Model {
 				const double _Psleep = 0.1, 
 				const double _Pwake = 0.1, 
 				const double _delta = 0.1,
-				const double _omega = 2 * std::pi); 
+				const double _omega = 2 * M_PI ); 
 
 		void setClimate(double mean_Tshift, double mean_Tr, double sd_Tshift=0, double sd_Tr=0, double length=0, unsigned int no_intervals = 1);
 		void setClimate(std::ifstream & file, unsigned int no_intervals, double length);
