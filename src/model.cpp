@@ -3,12 +3,31 @@
 #include <stdexcept>
 
 Model::Model(const Model& orig):
-	sumNperK(0.0), heat_capacity(orig.heat_capacity), one_minus_heatcap(orig.one_minus_heatcap), K(orig.K), Psleep(orig.Psleep), Pwake(orig.Pwake), PwakePlusDelta(orig.PwakePlusDelta), omega(orig.omega), B(orig.B), C(orig.C)
+	sumNperK(0.0),
+	heat_capacity(orig.heat_capacity),
+	one_minus_heatcap(orig.one_minus_heatcap),
+	omega(orig.omega),
+	B(orig.B),
+	C(orig.C),
+	K(orig.K),
+	Psleep(orig.Psleep),
+	Pwake(orig.Pwake),
+	PwakePlusDelta(orig.PwakePlusDelta),
+	attack(orig.attack),
+	ah(orig.ah),
+	rho(orig.rho),
+	alpha(orig.alpha),
+	beta(orig.beta)
 	{std::cerr << "Copy constructor called" << std::endl;}
 
 Model::Model(std::vector<double> & Tranges, 
 		std::vector<double> & Tmins, 
 		double _heat_capacity,
+		double _attack,
+		double handling,
+		double mass,
+		double dK,
+		double _rho, 
 		const double A, 
 		const double b, 
 		const double _K, 
@@ -16,7 +35,22 @@ Model::Model(std::vector<double> & Tranges,
 		const double _Pwake, 
 		const double _delta, 
 		const double _omega): 
-	sumNperK(0.0), heat_capacity(_heat_capacity), one_minus_heatcap(1-_heat_capacity), K(_K), Psleep(_Psleep), Pwake(_Pwake), PwakePlusDelta(_Pwake + _delta), omega(_omega), B(2.0), C(_heat_capacity * B / _omega){
+	sumNperK(0.0),
+	heat_capacity(_heat_capacity),
+	one_minus_heatcap(1-_heat_capacity),
+	omega(_omega),
+	B(2.0),
+	C(_heat_capacity * B / _omega),
+	K(_K),
+	Psleep(_Psleep),
+	Pwake(_Pwake),
+	PwakePlusDelta(_Pwake + _delta),
+	attack(_attack),
+	ah(_attack * handling),
+	rho(_rho),
+	alpha( dK*std::pow(mass, b_K) / std::exp( E_K / (BOLTZMANN * NORMALTEMP) ) ),
+	beta(E_K / BOLTZMANN)
+{
 
 		//start indexing
 		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
@@ -57,16 +91,6 @@ Model::Model(std::vector<double> & Tranges,
 						if(dNdt[gplus] < 0.0 && N[gplus] <= 0.0) dNdt[gplus] = 0.0;
 					} );
 
-			//add function for dormant population
-			/*func_sleeping.push_back( [&, this, g, gplus](const state_type &N, state_type &dNdt, double t ){
-						//variable: N, dNdt
-						//copy: g, gplus
-						//does not matter: Psleep, PwakePlusDelta
-						double Ng = N[g], D = N[gplus];
-						if(Ng < 0.0) Ng = 0.0;
-						if(D < 0.0) D = 0.0;
-						dNdt[gplus] = Ng*Psleep - D*PwakePlusDelta;
-					} );*/
 			g += 2; //step to next awake population
 		}
 }
@@ -131,6 +155,46 @@ void Model::setExtreme(unsigned int no, double until, double sd){
 	}
 }
 
+/// The differential equation system
+/**
+ * 0) Temperature:   
+ * 	\f( \frac{dT}{dt} = \frac{Q^* \sin (\omega t) + Q_0 - (B T)}{C}  \f)  
+ * 	variables \f$Q^*\f$ and \f$Q_0\f$ are from the lookup table Tpars  
+ * 1) Resource:  
+ *	\f$ \frac{dR}{dt}= \rho(K_R-R) - f(R) \sum N_g \f$  
+ * 	\f$\rho, ~ d_K, ~ M\f$ are constants  
+ * 	\f$K_R\f$ is calculated as \f$K_R(T) = d_K M_i^{b_K} e^{E_K \frac{T_0 - T}{k T T_0}}\f$ or as \f$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}\f$  
+ * 	\f[
+ * 	K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}= \\ 
+ *		=(d_K M^{0.28}) e^{ \frac{ 0.71 \times 293.15}{8.62 x 10^{-5} \times 293.15 } / T -  \frac{0.71}{8.62 x 10^{-5} * 293.15 }}= \\
+ *		=(d_K M^{0.28}) e^{ \frac{ 0.71 \times 293.15}{8.62 x 10^{-5} \times 293.15 } / T} /  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }} = \\ 
+ *		=\frac{d_K M^{0.28}}{  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }}} e^{ \frac{ 0.71 }{8.62 x 10^{-5} } / T}
+ * 	\f]
+ * 	if \f$ \alpha=\frac{d_K M^{0.28}}{  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }}}, \beta = \frac{ 0.71 }{8.62 x 10^{-5} } \to K(T) = \alpha e^{\beta/T} \f$  
+ *	So, the equation for resource is \f$ \frac{dR}{dt}= \rho(\alpha e^{\beta/T}-R) - f(R) \sum N_g \f$
+ *
+ *	Resource-utility function of resource is a Holling type-2 utility function:  \f$f(R) = \frac{aR}{1+ahR} \f$ 
+ *
+ * 2) The rest of the equations are according to the ones initialised in the constructor!
+ *
+ * | variable | sign          |                                                                                           | value            |
+ * |----------|:--------------|:------------------------------------------------------------------------------------------|-----------------:|
+ * | x[0]     | \f$T \f$      | temperature (in Kelvin)                                                                   | variable         |
+ * | x[1]     | \f$R \f$      | Resource                                                                                  | variable         |
+ * | rho      | \f$\rho \f$   | Constant for semi-chemostat: speed of reproduction                                        | variable         |
+ * | dK       | \f$d_K \f$    | parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K | ?                |
+ * | body_mass| \f$M_i \f$    | body mass                                                                                 |  ?               |
+ * |          | \f$b_K \f$    | the exponent of the respective body-mass scaling relationship                             | 0.28             |
+ * |          | \f$E_K \f$    | activation energy                                                                         |   0.71           |
+ * |          | \f$k \f$      | Boltzmann constant                                                                        | 8.62 x 10^{-5}   |
+ * |          | \f$T_0 \f$    | normalisation temperature                                                                 |   293.15         |
+ * | attack   | \f$a\f$       | attack rate                                                                               |   ?              |
+ * | ah       | \f$ah\f$      | attack rate times handling rate                                                           |   ?              |
+ *
+ * @param x the input vector(state)
+ * @param dxdt the output vector (derivates)
+ * @param t time
+ */
 void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	//compute temperature
 	TempParams *Tpar = &(Tpars.begin()->second);
@@ -141,13 +205,14 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	}
 	dxdt[0] = (Tpar->Qamp * std::sin(omega * t) + Tpar->Qmean - (B*x[0]) )/C;
 
-	// compute resource
-	dxdt[1] = 0;
-
 	//compute sumN
 	double sumN = 0.0;
 	for(unsigned int i = 2, max = x.size(); i < max; i += 2) sumN += x[i];
 	sumNperK = sumN / K;
+
+	// compute resource
+	dxdt[1] = rho * (alpha * std::exp(beta/x[0]) - x[1]) - x[1]*attack/(1+ah*x[1]) * sumN;
+
 
 	//compute awake pop dervatives
 	for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);

@@ -446,7 +446,7 @@ ggplot(as.data.frame(out), aes(x=time, y=X))+
 ## Equations
 
 
-$$\frac{dR}{dt}= R ~ r_{max} (1 - \frac{R}{K_R(T)}) - f(R) \sum N_g \\
+$$\frac{dR}{dt}= \rho(K_R-R) - f(R) \sum N_g \\
 \frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)\\
 \frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D$$
 
@@ -501,6 +501,17 @@ ggplot()+
   labs(x="Temperature [°C]", y=bquote(paste("Carrying capapcity " (K[R]))), caption = bquote(M == 1) )+
   scale_color_discrete(name=bquote(d[K] == {} ))
 ```
+
+## Simplifying{.scrollable}
+
+$$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}= \\
+=(d_K M^{0.28}) e^{ \frac{ 0.71 \times 293.15}{8.62 x 10^{-5} \times 293.15 } / T -  \frac{0.71}{8.62 x 10^{-5} * 293.15 }}= \\ 
+=(d_K M^{0.28}) e^{ \frac{ 0.71 \times 293.15}{8.62 x 10^{-5} \times 293.15 } / T} /  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }} = \\ 
+=\frac{d_K M^{0.28}}{  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }}} e^{ \frac{ 0.71 }{8.62 x 10^{-5} } / T} $$
+
+$$\text{if } \alpha=\frac{d_K M^{0.28}}{  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }}}, \beta = \frac{ 0.71 }{8.62 x 10^{-5} } \to K(T) = \alpha e^{\beta/T}$$
+
+$$\frac{dR}{dt}= \rho(\alpha e^{\beta/T}-R) - f(R) \sum N_g$$
 
 
 ## Feeding

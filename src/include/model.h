@@ -11,6 +11,11 @@
 #include <stdexcept>
 #include "randomgen.h"
 
+#define b_K 0.28
+#define E_K 0.71
+#define BOLTZMANN 8.62e-5
+#define NORMALTEMP 293.15
+
 using namespace std;
 using namespace boost::numeric::odeint;
 
@@ -47,34 +52,55 @@ class Model {
 		//std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 		
 		double sumNperK;
+
+		// climate constans
 		const double heat_capacity;
 		const double one_minus_heatcap;
+		const double omega;
+		const double B;
+		const double C;
+
+		// consumer dynamic constants
 		const double K;
 		const double Psleep;
 		const double Pwake;
 		const double PwakePlusDelta;
+		const double attack;
+		const double ah;
 
-		const double omega;
-		const double B;
-		const double C;
+		// resource dynamic constants
+		const double rho;
+		const double alpha;
+		const double beta;
 		
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
 		std::map<double, double> extreme;
 
 
 	public:
+		/// Copy constructor
 		Model(const Model& orig);
 
+		/// Constructor
+		/**
+		 * @param Tranges a vector defining the widths of breeding temperatures NOTE: it is paired with `Tmins` variable
+		 * @param mass the mass of one resource individual
+		 */
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
-				double heat_capacity,
+				double _heat_capacity,
+				double _attack,
+				double handling,
+				double mass,
+				double dK,
+				double _rho, 
 				const double A=1, 
 				const double b=1.9, 
 				const double _K=100, 
 				const double _Psleep = 0.1, 
 				const double _Pwake = 0.1, 
 				const double _delta = 0.1,
-				const double _omega = 2 * M_PI ); 
+				const double _omega = 2 * M_PI); 
 
 		void setClimate(double mean_Tshift, double mean_Tr, double sd_Tshift=0, double sd_Tr=0, double length=0, unsigned int no_intervals = 1);
 		void setClimate(std::ifstream & file, unsigned int no_intervals, double length);
