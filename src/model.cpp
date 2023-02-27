@@ -4,6 +4,7 @@
 
 Model::Model(const Model& orig):
 	sumNperK(0.0),
+	feeding(0.0),
 	heat_capacity(orig.heat_capacity),
 	one_minus_heatcap(orig.one_minus_heatcap),
 	omega(orig.omega),
@@ -20,6 +21,34 @@ Model::Model(const Model& orig):
 	beta(orig.beta)
 	{std::cerr << "Copy constructor called" << std::endl;}
 
+/**
+ * The constructor creates the equations for most of the differential equation system ( see: `operator()` ). 
+ * It pushes lambda functions to the vector `func_awake`. Variables are taken by reference by defeult, exdcept the followings:   
+ * The equations:  
+ * \f[
+ *  b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c \\
+ *  c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3 \\
+ *  b_g(T) = f(R) a e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{a}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d
+ *  B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{a}{c}
+ * \f]
+ *
+ * - B and A are precomputed (in constructor) values 
+ * - f(R) is computed before in operator()
+ * - d is computed in place
+ *
+ * | variable    | sign                   |                                                                                           | value            |
+ * |-------------|:-----------------------|:------------------------------------------------------------------------------------------|-----------------:|
+ * | x[g]        | \f$ N_g \f$            | value of awaken individuals of genotype g                                                 | variable         |
+ * | x[gplus]    | \f$ D_g \f$            | value of dormant individuals of genotype g                                                | variable         |
+ * | dxdt[g]     | \f$ \frac{dN_g}{dt}\f$ | derivative of awaken individuals of genotype g                                            | variable         |
+ * | dxdt[gplus] | \f$ \frac{dD_g}{dt}\f$ | derivative of dormant individuals of genotype g                                           | variable         |
+ * | feeding     | \f$ f(R)           \f$ | feeding rate (computed in operator() - global reference)                                  | variable         |
+ * | base        | \f$ B              \f$ | basis of power function, computed in constructor                                          | constatnt        |
+ * | compensation| \f$ A              \f$ | compensation of Eppley curve, computed in constructor                                     | constatnt        |
+ * | diff        | \f$ d = T-T_{min}  \f$ | temperature differnece, computed inside lambda function                                   | variable         |
+ * | b           | \f$ b              \f$ | shape of Eppley curve                                                                     | 1.9              |
+ * | A           | \f$ a              \f$ | scaling factor for Eppley curve - parameter                                               | 1                |
+ */
 Model::Model(std::vector<double> & Tranges, 
 		std::vector<double> & Tmins, 
 		double _heat_capacity,
@@ -36,6 +65,7 @@ Model::Model(std::vector<double> & Tranges,
 		const double _delta, 
 		const double _omega): 
 	sumNperK(0.0),
+	feeding(0.0),
 	heat_capacity(_heat_capacity),
 	one_minus_heatcap(1-_heat_capacity),
 	omega(_omega),
@@ -67,7 +97,7 @@ Model::Model(std::vector<double> & Tranges,
 			//compute genotype specific variables
 			const double Tmin = Tmins[i], Trange = Tranges[i], Tmax = Trange + Tmin;
 			const double base = std::exp(b / Trange);
-			const double compensation = (2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3) / A;
+			const double compensation = A / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3));
 			const unsigned int gplus = g+1; //pos of dormant stage
 
 			//add function for awake population
@@ -76,7 +106,7 @@ Model::Model(std::vector<double> & Tranges,
 						//copy: Tmin, Tmax, Trange, base, compensation, g, gplus
 						//does not matter: Psleep, Pwake
 						//reference: sumNperK
-						double diff1 = N[0] - Tmin, diff2 = Tmax - N[0], repl_rate = std::pow(base, diff1) * diff2 * diff1 / compensation;
+						double diff = N[0] - Tmin, repl_rate = std::pow(base, diff1) * diff2 * diff1 / compensation;
 						double Ng = N[g], Dg = N[gplus];
 						if(Ng < 0.0) Ng = 0.0;
 						if(Dg < 0.0) Dg = 0.0;
@@ -211,7 +241,8 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	sumNperK = sumN / K;
 
 	// compute resource
-	dxdt[1] = rho * (alpha * std::exp(beta/x[0]) - x[1]) - x[1]*attack/(1+ah*x[1]) * sumN;
+	feeding = x[1]*attack/(1+ah*x[1]);
+	dxdt[1] = rho * (alpha * std::exp(beta/x[0]) - x[1]) - feeding * sumN;
 
 
 	//compute awake pop dervatives

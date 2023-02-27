@@ -52,6 +52,7 @@ class Model {
 		//std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 		
 		double sumNperK;
+		double feeding;
 
 		// climate constans
 		const double heat_capacity;
@@ -84,7 +85,16 @@ class Model {
 		/// Constructor
 		/**
 		 * @param Tranges a vector defining the widths of breeding temperatures NOTE: it is paired with `Tmins` variable
+		 * @param Tmins
+		 * @param _heat_capacity
+		 * @param _attack
+		 * @param handling
 		 * @param mass the mass of one resource individual
+		 * @param
+		 * @param 
+		 * @param A scaling constant for breeding: scales \f$f(R)\f$ to \f$b_g\f$. Default is 1
+		 * @param b shape of Eppley curve. By default it is set to 1.9
+		 * @param _omega: scaling weather to time. Set it to \f$2 \pi \f$ to have 1 year equal to 1.0 timestep
 		 */
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 

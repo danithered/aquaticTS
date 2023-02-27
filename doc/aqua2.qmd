@@ -574,6 +574,20 @@ ggplot()+
   theme(legend.position = "none")
 ```
 
+## Simplification
+
+$$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
+
+$$B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{a}{c}$$
+
+$$b_g(T) = f(R) a e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{a}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d$$
+
+where 
+
+- $f(R)$ is computed before in iteration step
+- $A$ and $B$ are precomputed values
+- $d$ is computed in place
+
 ## Death rate
 
 Temperature acts on $\delta_g$
