@@ -51,7 +51,6 @@ class Model {
 		std::vector<std::function< void(const state_type&, state_type&, double) >> func_awake;
 		//std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 		
-		double sumNperK;
 		double feeding;
 
 		// climate constans
@@ -62,10 +61,6 @@ class Model {
 		const double C;
 
 		// consumer dynamic constants
-		const double K;
-		const double Psleep;
-		const double Pwake;
-		const double PwakePlusDelta;
 		const double attack;
 		const double ah;
 
@@ -98,21 +93,23 @@ class Model {
 		 */
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
-				double _heat_capacity,
-				double _attack,
-				double handling,
-				double mass,
-				double dK,
-				double _rho, 
+				const double _heat_capacity,
+				const double _attack,
+				const double handling,
+				const double mass,
+				const double dK,
+				const double _rho, 
+				const double r_opt=0.2, 
+				const double death_flat=50.0, 
+				const double death_basel=0.05, 
+				const double death_pow=2.0, 
+				const double h_min=0.1, 
+				const double h_range=0.8, 
 				const double A=1, 
 				const double b=1.9, 
-				const double _K=100, 
-				const double _Psleep = 0.1, 
-				const double _Pwake = 0.1, 
-				const double _delta = 0.1,
+				const double delta = 0.1,
 				const double _omega = 2 * M_PI); 
 
-		void setClimate(double mean_Tshift, double mean_Tr, double sd_Tshift=0, double sd_Tr=0, double length=0, unsigned int no_intervals = 1);
 		void setClimate(std::ifstream & file, unsigned int no_intervals, double length);
 
 		void setExtreme(unsigned int no, double until, double sd=1);

@@ -3,17 +3,12 @@
 #include <stdexcept>
 
 Model::Model(const Model& orig):
-	sumNperK(0.0),
 	feeding(0.0),
 	heat_capacity(orig.heat_capacity),
 	one_minus_heatcap(orig.one_minus_heatcap),
 	omega(orig.omega),
 	B(orig.B),
 	C(orig.C),
-	K(orig.K),
-	Psleep(orig.Psleep),
-	Pwake(orig.Pwake),
-	PwakePlusDelta(orig.PwakePlusDelta),
 	attack(orig.attack),
 	ah(orig.ah),
 	rho(orig.rho),
@@ -26,10 +21,35 @@ Model::Model(const Model& orig):
  * It pushes lambda functions to the vector `func_awake`. Variables are taken by reference by defeult, exdcept the followings:   
  * The equations:  
  * \f[
+ *  \frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)\\
+ *  \frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D
  *  b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c \\
  *  c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3 \\
  *  b_g(T) = f(R) a e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{a}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d
  *  B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{a}{c}
+ *  T_{opt}=T_{min}+T_{range} r_{opt} \\
+ *  T_{diff}=T-T_{opt}_
+ *  \delta_g = \left | \frac{T-T_{opt} }{d_{f}} \right |^{d_p}+d_b = \\ 
+ *  \delta_g = \left | (T-T_{opt})\frac{1}{d_{f}} \right |^{d_p}+d_b = \\ 
+ *  = {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b \\
+ *  h_{sleep}(T) = \frac{h_{range}}{1+e^{  T-T_{opt}  }} + h_{min} \\
+ *  h_{wake}(T)  = \frac{h_{range}}{1+e^{-(T-T_{opt}) }} + h_{min}
+ * \f]
+ *
+ * \f[
+ * \frac{dN_g}{dt}=
+ *  N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\
+ *  =N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b \right )
+ *  - N_g \left ( \frac{h_{range}}{1+e^{T_{diff}}} + h_{min} \right ) +
+ *  D_g \left ( \frac{h_{range}}{1+e^{-T_{diff} }} + h_{min} \right ) = \\
+ *  =N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b -\frac{h_{range}}{1+e^{T_{diff}}} - h_{min} \right )+
+ *  D_g \left ( \frac{h_{range}}{1+e^{-T_{diff} }} + h_{min} \right ) 
+ * /f]
+ *
+ * So, at the end:
+ * \f[
+ * \frac{dN_g}{dt}=N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b -h_{sleep}(T) \right )+ D_g h_{wake}(T) \\
+ * \frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g (h_{wake}(T) + \delta_D)
  * \f]
  *
  * - B and A are precomputed (in constructor) values 
@@ -48,33 +68,40 @@ Model::Model(const Model& orig):
  * | diff        | \f$ d = T-T_{min}  \f$ | temperature differnece, computed inside lambda function                                   | variable         |
  * | b           | \f$ b              \f$ | shape of Eppley curve                                                                     | 1.9              |
  * | A           | \f$ a              \f$ | scaling factor for Eppley curve - parameter                                               | 1                |
+ * | Topt_at     | \f$ r_{opt}        \f$ | optimal tempertature as percentage of Trange                                              | 0.2              |
+ * | death_flat  | \f$ d_f            \f$ | scaling constant for death rate flatness: its reciproc slope                              | 50               |
+ * | death_basel | \f$ d_b            \f$ | baseline of death: the value of death rate at minimal                                     | 0.05             |
+ * | death_pow   | \f$ d_p            \f$ | power of the death function: the shape of the curve                                       | 2.0              |
+ * | Topt        | \f$ T_{opt}        \f$ | the scaling part of simplified death rate function                                        | constant         |
+ * | Tdiff       | \f$ T_{diff}       \f$ | divergence from optimal temperature                                                       | variable         |
+ * | h_min       | \f$ h_min          \f$ | minimal rate of producing dormant offsprings                                              | 0.1              |
+ * | h_range     | \f$ h_range        \f$ | difference between maximal and minimal rate of producing dormant offsprings               | 0.1              |
+ * | delta       | \f$ \delta_D       \f$ | the death rate of dormant individuals                                                     | 0.1              |
  */
 Model::Model(std::vector<double> & Tranges, 
 		std::vector<double> & Tmins, 
-		double _heat_capacity,
-		double _attack,
-		double handling,
-		double mass,
-		double dK,
-		double _rho, 
+		const double _heat_capacity,
+		const double _attack,
+		const double handling,
+		const double mass,
+		const double dK,
+		const double _rho, 
+		const double r_opt, 
+		const double death_flat, 
+		const double death_basel, 
+		const double death_pow, 
+		const double h_min, 
+		const double h_range, 
 		const double A, 
 		const double b, 
-		const double _K, 
-		const double _Psleep, 
-		const double _Pwake, 
-		const double _delta, 
+		const double delta, 
 		const double _omega): 
-	sumNperK(0.0),
 	feeding(0.0),
 	heat_capacity(_heat_capacity),
 	one_minus_heatcap(1-_heat_capacity),
 	omega(_omega),
 	B(2.0),
 	C(_heat_capacity * B / _omega),
-	K(_K),
-	Psleep(_Psleep),
-	Pwake(_Pwake),
-	PwakePlusDelta(_Pwake + _delta),
 	attack(_attack),
 	ah(_attack * handling),
 	rho(_rho),
@@ -85,6 +112,9 @@ Model::Model(std::vector<double> & Tranges,
 		//start indexing
 		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
 
+		// unspecific constants
+		const double death_flat_reciproc = 1/death_flat;
+
 		//add functions
 		//for(auto Trangei = Tranges.begin(); Trangei != Tranges.end(); ++Trangei) for(auto Tmini = Tmins.begin(); Tmini != Tmins.end(); ++Tmini){
 		for(unsigned int i = 0; i < Tranges.size(); ++i){
@@ -94,27 +124,42 @@ Model::Model(std::vector<double> & Tranges,
 			 * N[g+1] - dormant population
 			 * */ 
 
-			//compute genotype specific variables
-			const double Tmin = Tmins[i], Trange = Tranges[i], Tmax = Trange + Tmin;
-			const double base = std::exp(b / Trange);
-			const double compensation = A / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3));
+			// compute genotype specific variables
+			const double Tmin = Tmins[i], Trange = Tranges[i], Tmax = Trange + Tmin; // for temperature
+			const double Topt = Tmin + Trange*r_opt; // optimal temperature
+			const double base = std::exp(b / Trange), compensation = A / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
 			const unsigned int gplus = g+1; //pos of dormant stage
 
 			//add function for awake population
-			func_awake.push_back( [&, this, Tmin, Tmax, Trange, base, compensation, g, gplus](const state_type &N, state_type &dNdt, double t ){
+			func_awake.push_back( [&, this, Tmin, Tmax, base, compensation, g, gplus, death_flat_reciproc, Topt, death_pow, death_basel, h_min, h_range, delta](const state_type &N, state_type &dNdt, double t ){
 						//variable: N, dNdt
-						//copy: Tmin, Tmax, Trange, base, compensation, g, gplus
+						//reference: this->feeding
+						//copy: Tmin, Tmax, Topt, base, compensation, g, gplus, death_flat_reciproc, death_basel
 						//does not matter: Psleep, Pwake
-						//reference: sumNperK
-						double diff = N[0] - Tmin, repl_rate = std::pow(base, diff1) * diff2 * diff1 / compensation;
+						//reference: feeding
+
+						// Tdiff
+						const double diff = N[0] - Tmin, Tdiff = N[0] - Topt;
+						
+						// dormancy rates
+					        const double h_sleep = h_range / (1 + std::exp(Tdiff)) + h_min; // sleeping
+						const double h_wake  = h_range / (1 + std::exp(-Tdiff)) + h_min; // waking up
+
+						// replication
+						const double repl_rate = feeding * compensation * std::pow(base, diff) * (Tmax - N[0]) * diff // breeding
+							- std::pow(std::abs( Tdiff * death_flat_reciproc), death_pow) - death_basel // death
+							- h_sleep; // falling asleep
+
+
+						// get current
 						double Ng = N[g], Dg = N[gplus];
 						if(Ng < 0.0) Ng = 0.0;
 						if(Dg < 0.0) Dg = 0.0;
 
 						// calculate dNdt
-						dNdt[g] = Ng * (repl_rate - std::abs(repl_rate * sumNperK) ) - Ng*Psleep + Dg*Pwake;
+						dNdt[g] = Ng * repl_rate + Dg * h_wake;
 						// calculate dDdt
-						dNdt[gplus] = Ng*Psleep - Dg*PwakePlusDelta;
+						dNdt[gplus] = Ng*h_sleep - Dg*(h_wake + delta);
 
 						// for safety
 						if(dNdt[g] < 0.0 && N[g] <= 0.0) dNdt[g] = 0.0;
@@ -238,7 +283,6 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	//compute sumN
 	double sumN = 0.0;
 	for(unsigned int i = 2, max = x.size(); i < max; i += 2) sumN += x[i];
-	sumNperK = sumN / K;
 
 	// compute resource
 	feeding = x[1]*attack/(1+ah*x[1]);

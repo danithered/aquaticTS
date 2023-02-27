@@ -622,6 +622,17 @@ ggplot()+
 ```
 
 
+## Simplification
+
+$$T_{opt}=T_{min}+T_{range} r_{opt}$$
+
+$$\delta_g = \left | \frac{T-T_{opt} }{d_{f}} \right |^{d_p}+d_b = \\ 
+\delta_g = \left | (T-T_{opt})\frac{1}{d_{f}} \right |^{d_p}+d_b = \\ 
+= {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b $$
+
+$$\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\
+\frac{dN_g}{dt}=N_g \left (f(R) A B^d (T_{max}-T)d - {\left | (T- T_{opt}) {d_f}^{-1} \right |^{d_p}} -d_b \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)$$
+
 ## Replication
 
 ```{r}
@@ -788,32 +799,51 @@ ggplot()+
 
 ## Temperature depedence of dormancy
 
-$$h_{sleep}(T) = \frac{t_{max} - t_{min}}{1+e^{T-T_{max}+T_{range}/2 }} + t_{min}$$
-$$h_{wake}(T) = \frac{t_{max} - t_{min}}{1+e^{-T+T_{max}-T_{range}/2 }} + t_{min}$$
+$$h_{sleep}(T) = \frac{h_{range}}{1+e^{T-T_{opt}}} + h_{min}$$
+$$h_{wake}(T) = \frac{h_{range}}{1+e^{-(T-T_{opt}) }} + h_{min}$$
 
 ```{r}
 #| fig-align: center
 Tmin=15
 Trange = 10
 Tmax= Tmin + Trange
-tsleep <- function(x, Tmin, Tmax, Trange) 0.8/(1+exp(x-Tmax+Trange/2)) + 0.1
-twake <- function(x, Tmin, Tmax, Trange) 0.8/(1+exp(-x+Tmax-Trange/2))+0.1
+tsleep <- function(x, Tmin, Trange, hrange=0.8, hmin=0.1, at=0.5) hrange/( 1+exp(  x-(Tmin+Trange*at) ) ) + hmin
+twake  <- function(x, Tmin, Trange, hrange=0.8, hmin=0.1, at=0.5) hrange/( 1+exp(-(x-(Tmin+Trange*at))) ) + hmin
 ggplot()+
   stat_function(fun=tsleep,
                 geom="area",
                 fill= "lightgreen",
-                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                args = list(Tmin=Tmin, Trange=Trange),
                 xlim=c(Tmin,Tmax),
                 linewidth=3)+
   geom_function(fun=tsleep,
-                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                args = list(Tmin=Tmin, Trange=Trange),
                 xlim=c(Tmin-Trange/10,Tmax+Trange/10),
                 linewidth=3)+
   geom_function(fun=twake,
-                args = list(Tmin=Tmin, Tmax=Tmax, Trange=Trange),
+                args = list(Tmin=Tmin, Trange=Trange),
                 xlim=c(Tmin-Trange/10,Tmax+Trange/10),
                 linewidth=1, color="grey", linetype="dashed" )+
   coord_cartesian(ylim=c(0,1))+
   #theme(axis.text = element_blank())+
   labs(x="Temperature", y= bquote(P[sleep]))
 ```
+
+
+## Simplification
+
+
+$$T_{diff}=T - T_{opt}$$
+
+
+$$\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\
+=N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\
+=N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b -h_{sleep}(T) \right )+ D_g h_{wake}(T) $$
+
+$$c_{min}=-(h_{min}+d_b)$$
+
+So, at the end:
+
+$$\frac{dN_g}{dt}=N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b -h_{sleep}(T) \right )+ D_g h_{wake}(T)$$
+
+$$\frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g (h_{wake}(T) + \delta_D)$$
