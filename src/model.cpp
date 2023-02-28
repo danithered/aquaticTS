@@ -23,12 +23,16 @@ Model::Model(const Model& orig):
  * \f[
  *  \frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)\\
  *  \frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D
+ * \f]
+ * \f[
  *  b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c \\
  *  c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3 \\
  *  b_g(T) = f(R) a e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{a}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d
  *  B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{a}{c}
- *  T_{opt}=T_{min}+T_{range} r_{opt} \\
- *  T_{diff}=T-T_{opt}_
+ * \f]
+ * \f[
+ *  T_{opt}= \text{see: optimalTemp} \\  
+ *  T_{diff}=T-T_{opt}
  *  \delta_g = \left | \frac{T-T_{opt} }{d_{f}} \right |^{d_p}+d_b = \\ 
  *  \delta_g = \left | (T-T_{opt})\frac{1}{d_{f}} \right |^{d_p}+d_b = \\ 
  *  = {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b \\
@@ -38,13 +42,13 @@ Model::Model(const Model& orig):
  *
  * \f[
  * \frac{dN_g}{dt}=
- *  N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\
+ *  N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\  
  *  =N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b \right )
  *  - N_g \left ( \frac{h_{range}}{1+e^{T_{diff}}} + h_{min} \right ) +
  *  D_g \left ( \frac{h_{range}}{1+e^{-T_{diff} }} + h_{min} \right ) = \\
  *  =N_g \left (f(R) A B^d (T_{max}-T)d - {\left | T_{diff} {d_f}^{-1} \right |^{d_p}} -d_b -\frac{h_{range}}{1+e^{T_{diff}}} - h_{min} \right )+
  *  D_g \left ( \frac{h_{range}}{1+e^{-T_{diff} }} + h_{min} \right ) 
- * /f]
+ * \f]
  *
  * So, at the end:
  * \f[
@@ -74,8 +78,8 @@ Model::Model(const Model& orig):
  * | death_pow   | \f$ d_p            \f$ | power of the death function: the shape of the curve                                       | 2.0              |
  * | Topt        | \f$ T_{opt}        \f$ | the scaling part of simplified death rate function                                        | constant         |
  * | Tdiff       | \f$ T_{diff}       \f$ | divergence from optimal temperature                                                       | variable         |
- * | h_min       | \f$ h_min          \f$ | minimal rate of producing dormant offsprings                                              | 0.1              |
- * | h_range     | \f$ h_range        \f$ | difference between maximal and minimal rate of producing dormant offsprings               | 0.1              |
+ * | h_min       | \f$ h_{min}        \f$ | minimal rate of producing dormant offsprings                                              | 0.1              |
+ * | h_range     | \f$ h_{range}      \f$ | difference between maximal and minimal rate of producing dormant offsprings               | 0.1              |
  * | delta       | \f$ \delta_D       \f$ | the death rate of dormant individuals                                                     | 0.1              |
  */
 Model::Model(std::vector<double> & Tranges, 
@@ -299,6 +303,52 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
  * It looks for the \f$\frac{db_g}{dT}=0\f$ solutions.
  * It draws back to a secondary equation with 2 real roots. The optima is the higher from the two values
  * \f[T_{1,2}=\frac{-b -2\frac{b}{T_{range}}T_{min} + 2 \pm \sqrt{b^2+4 }}{-2 \frac{b}{T_{range}}}\f]
+ *
+ * Detailed:
+ * \f[
+ *  b_g(T) = c e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min})=c e^{b \frac{T-T_{min}}{T_{range}}}(T_{max} T - T_{max}T_{min} - T^2 + TT_{min} ) \\  
+ *  \frac{d ~ b_g(T)}{d~T} = c e^{b\frac{(T - T_{min})}{T_{range}}} \frac{b}{T_{range}} (T_{max} T - T_{max}T_{min} - T^2 + TT_{min}) +
+ *  ce^{b\frac{(T - T_{min})}{T_{range}}} (T_{max} - 2 T + T_{min}) = 0 \\  
+ *  c e^{b\frac{T - T_{min}}{T_{range}}} \frac{b}{T_{range}} (T_{max} T - T_{max}T_{min} - T^2 + TT_{min}) = -
+ *  ce^{b\frac{T - T_{min}}{T_{range}}} (T_{max} - 2 T + T_{min})  \\  
+ *  \frac{b}{T_{range}}T_{max} T - \frac{b}{T_{range}}T_{max}T_{min} - \frac{b}{T_{range}}T^2 + \frac{b}{T_{range}}TT_{min} = -T_{max} + 2 T - T_{min}  \\  
+ *  \frac{b}{T_{range}}T_{max} T  - \frac{b}{T_{range}}T^2 + \frac{b}{T_{range}}TT_{min} - 2 T = -T_{max}  - T_{min} + \frac{b}{T_{range}}T_{max}T_{min} \\
+ *  - \frac{b}{T_{range}}T^2 + \left (\frac{b}{T_{range}}(T_{max}+ T_{min}) - 2 \right ) T = -T_{max}  - T_{min} + \frac{b}{T_{range}}T_{max}T_{min} \\
+ *  - \frac{b}{T_{range}}T^2 + \left (\frac{b}{T_{range}}(T_{range}+ 2T_{min}) - 2 \right ) T = -T_{range}  - 2T_{min} + \frac{b}{T_{range}}(T_{min}+T_{range})T_{min} \\
+ *  - \frac{b}{T_{range}}T^2 + \left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right ) T + \left (T_{range}  + 2T_{min} - \frac{b}{T_{range}}(T_{min}+T_{range})T_{min} \right ) =0 \\
+ *  T_{1,2}=\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}, a=- \frac{b}{T_{range}}, b= \left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right ), c=T_{range}  + 2T_{min} - \frac{b}{T_{range}}(T_{min}+T_{range})T_{min} \\
+ *  T_{1,2}=\frac{-\left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right ) \pm \sqrt{\left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right )^2 - 4(- \frac{b}{T_{range}})(T_{range}  + 2T_{min} - \frac{b}{T_{range}}(T_{min}+T_{range})T_{min})}}{-2 \frac{b}{T_{range}}} \\
+ *  T_{1,2}=\frac{
+ *  -(b+ 2\frac{b}{T_{range}}T_{min} - 2)
+ *  \pm \sqrt{
+ *  \left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2
+ *  + 4\frac{b}{T_{range}}(T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}(T_{min}+T_{range}))}}
+ *  {-2 \frac{b}{T_{range}}} \\
+
+ *  T_{1,2}=\frac{
+ *  -(b+ 2\frac{b}{T_{range}}T_{min} - 2)
+ *  \pm \sqrt{
+ *  \left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2
+ *  + 4\frac{b}{T_{range}}(T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  )}}
+ *  {-2 \frac{b}{T_{range}}} \\
+ *  
+ *  \left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 +4\frac{b}{T_{range}}  (T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  ) \\
+ *  \left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 +4b  + 8\frac{b}{T_{range}}T_{min} - 4 \left ( \frac{b}{T_{range}}T_{min} \right )^2 - 4b\frac{b}{T_{range}}T_{min} \\
+ *  \left (b+ 2X - 2 \right )^2 + 4b  + 8X - 4 X^2 - 4bX \\
+ *  \left ( b^2 + 2bX -2b + 2bX + 4X^2 -4X -2b -4X +4 \right ) + 4b  + 8X - 4 X^2 - 4bX = b^2 + 4 \\
+ *  T_{1,2}=\frac{
+ *  -(b+ 2\frac{b}{T_{range}}T_{min} - 2)
+ *  \pm \sqrt{
+ *  \left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2
+ *  + 4b  + 8\frac{b}{T_{range}}T_{min} - 4 \left ( \frac{b}{T_{range}}T_{min} \right )^2 - 4b\frac{b}{T_{range}}T_{min} }}
+ *  {-2 \frac{b}{T_{range}}} \\
+ *  
+ *  T_{1,2}=\frac{
+ *  -b -2\frac{b}{T_{range}}T_{min} + 2
+ *  \pm \sqrt{
+ *  b^2+4 }}
+ *  {-2 \frac{b}{T_{range}}}
+ * \f]
  */
 const double Model::optimalTemp(const double b, const double Tmin, const double Trange) const{
 	const double nominator = -2*b/Trange, first = -b + nominator*Tmin + 2, second = std::sqrt(b*b+4);

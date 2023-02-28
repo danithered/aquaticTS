@@ -538,7 +538,7 @@ $$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
 
 $$c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
 
-## Birth rate maximum
+## Birth rate maximum {.scrollable .smaller}
 
 $$b_g(T) = c e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min})=c e^{b \frac{T-T_{min}}{T_{range}}}(T_{max} T - T_{max}T_{min} - T^2 + TT_{min})$$
 
@@ -568,8 +568,10 @@ $$T_{1,2}=\frac{
 + 4\frac{b}{T_{range}}(T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  )}}
 {-2 \frac{b}{T_{range}}}$$
 
-$$4\frac{b}{T_{range}}  (T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  )$$
-$$4b  + 8\frac{b}{T_{range}}T_{min} - 4 \left ( \frac{b}{T_{range}}T_{min} \right )^2 - 4b\frac{b}{T_{range}}T_{min} $$
+$$\left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 +4\frac{b}{T_{range}}  (T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  )$$
+$$\left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 +4b  + 8\frac{b}{T_{range}}T_{min} - 4 \left ( \frac{b}{T_{range}}T_{min} \right )^2 - 4b\frac{b}{T_{range}}T_{min} $$
+$$\left (b+ 2X - 2 \right )^2 + 4b  + 8X - 4 X^2 - 4bX $$
+$$\left ( b^2 + 2bX -2b + 2bX + 4X^2 -4X -2b -4X +4 \right ) + 4b  + 8X - 4 X^2 - 4bX = b^2 + 4$$
 $$T_{1,2}=\frac{
 -(b+ 2\frac{b}{T_{range}}T_{min} - 2)  
 \pm \sqrt{
@@ -624,6 +626,7 @@ b=1.9
 compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
 
 ggplot()+
+  geom_vline(xintercept = findOpt(b=b, Trange = 10, Tmin = 20 ))+
   stat_function(fun = b6, 
                 geom="area", fill="lightgreen",
                 args=list(Tmin=20, Tmax=30, Trange=10, b=b, compensation=compensation, sumN = 0), 
@@ -634,8 +637,7 @@ ggplot()+
   annotate(geom = "label", x=26, y=0.1, label="A == f(R) * c", parse=T, size=6)+
   labs(x="Temperature", y = bquote(b[g]))+
   coord_cartesian(ylim=c(-0.2, 0.4))+
-  theme(legend.position = "none")+
-  geom_vline(xintercept = findOpt(b=b, Trange = 10, Tmin = 20 ))
+  theme(legend.position = "none")
 ```
 
 ## Simplification

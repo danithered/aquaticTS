@@ -72,7 +72,6 @@ class Model {
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
 		std::map<double, double> extreme;
 
-		const double optimalTemp(const double b, const double Tmin, const double Trange) const;
 
 	public:
 		/// Copy constructor
@@ -116,6 +115,15 @@ class Model {
 		void setExtreme(unsigned int no, double until, double sd=1);
 
 		void operator()( const state_type &x , state_type &dxdt , double t );
+
+		/// Compute Topt
+		/**
+		 * @param b b parameter describing the shape of the Eppley curve
+		 * @param Tmin minimal temperature for breeding range
+		 * @param Trange widht of breeding temperature
+		 * @return the temperature, where the genotype breeds the fastest
+		 */
+		const double optimalTemp(const double b, const double Tmin, const double Trange) const;
 };
 
 // better Reprter class than next one
