@@ -17,7 +17,7 @@ int main(){
 	       inicTemp = 20.0, inicR=10.0, inicAwake = 0.0, inicDormant = 10.0,
 	       heat_capacity = 0.01, rho=1, mass=1, d_K=1, omega = 2 * M_PI,
 	       attack=1, handling=1,
-	       r_opt=0.2, 
+//	       r_opt=0.2, 
 	       death_flat=50.0, death_basel=0.05, death_pow=2.0, 
 	       h_min=0.1, h_range=0.8, 
 	       A=1, b=1.9, 
@@ -44,7 +44,7 @@ int main(){
 	cli.add_option("-w,--d_K", mass, "body mass of the resource"); 
 	cli.add_option("-a,--attack", attack, "attack rate of the consumer for Holling type-2 reponse"); 
 	cli.add_option("-H,--handling", handling, "handling rate of the consumer for Holling type-2 response"); 
-	cli.add_option("-o,--r_opt", r_opt, "position of the optimal temperature in percentage of Trange"); 
+//	cli.add_option("-o,--r_opt", r_opt, "position of the optimal temperature in percentage of Trange"); 
 	cli.add_option("-f,--death_flat", death_flat, "scaling constant for death rate flatness: its reciproc slope"); 
 	cli.add_option("-d,--death_basel", death_basel, "baseline of death: the value of death rate at minima"); 
 	cli.add_option("-p,--death_pow", death_pow, "power of the death function: the shape of the curve"); 
@@ -87,7 +87,7 @@ int main(){
 	output_types.close();
 
 	// inic model
-	Model m(Tranges, Tmins, heat_capacity, attack, handling, mass, d_K, rho, r_opt, death_flat, death_basel, death_pow, h_min, h_range, A, b, delta, omega); 
+	Model m(Tranges, Tmins, heat_capacity, attack, handling, mass, d_K, rho, 0.0, death_flat, death_basel, death_pow, h_min, h_range, A, b, delta, omega); 
 
 	// set climate
 	std::ifstream climate(climate_file);

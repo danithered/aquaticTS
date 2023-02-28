@@ -126,7 +126,8 @@ Model::Model(std::vector<double> & Tranges,
 
 			// compute genotype specific variables
 			const double Tmin = Tmins[i], Trange = Tranges[i], Tmax = Trange + Tmin; // for temperature
-			const double Topt = Tmin + Trange*r_opt; // optimal temperature
+//			const double Topt = Tmin + Trange*r_opt; // optimal temperature
+			const double Topt = optimalTemp(b, Tmin, Trange);
 			const double base = std::exp(b / Trange), compensation = A / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
 			const unsigned int gplus = g+1; //pos of dormant stage
 
@@ -292,5 +293,15 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	//compute awake pop dervatives
 	for(auto f = func_awake.begin(); f != func_awake.end(); f++) (*f)(x, dxdt, t);
 
+}
+
+/**
+ * It looks for the \f$\frac{db_g}{dT}=0\f$ solutions.
+ * It draws back to a secondary equation with 2 real roots. The optima is the higher from the two values
+ * \f[T_{1,2}=\frac{-b -2\frac{b}{T_{range}}T_{min} + 2 \pm \sqrt{b^2+4 }}{-2 \frac{b}{T_{range}}}\f]
+ */
+const double Model::optimalTemp(const double b, const double Tmin, const double Trange) const{
+	const double nominator = -2*b/Trange, first = -b + nominator*Tmin + 2, second = std::sqrt(b*b+4);
+	return( std::max( (first+second)/nominator, (first-second)/nominator) );
 }
 

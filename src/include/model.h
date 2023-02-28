@@ -72,6 +72,7 @@ class Model {
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
 		std::map<double, double> extreme;
 
+		const double optimalTemp(const double b, const double Tmin, const double Trange) const;
 
 	public:
 		/// Copy constructor

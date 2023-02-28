@@ -538,6 +538,69 @@ $$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
 
 $$c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
 
+## Birth rate maximum
+
+$$b_g(T) = c e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min})=c e^{b \frac{T-T_{min}}{T_{range}}}(T_{max} T - T_{max}T_{min} - T^2 + TT_{min})$$
+
+$$\frac{d ~ b_g(T)}{d~T} = c e^{b\frac{(T - T_{min})}{T_{range}}} \frac{b}{T_{range}} (T_{max} T - T_{max}T_{min} - T^2 + TT_{min}) +
+ce^{b\frac{(T - T_{min})}{T_{range}}} (T_{max} - 2 T + T_{min}) = 0 $$
+$$c e^{b\frac{T - T_{min}}{T_{range}}} \frac{b}{T_{range}} (T_{max} T - T_{max}T_{min} - T^2 + TT_{min}) = -
+ce^{b\frac{T - T_{min}}{T_{range}}} (T_{max} - 2 T + T_{min})  $$
+$$\frac{b}{T_{range}}T_{max} T - \frac{b}{T_{range}}T_{max}T_{min} - \frac{b}{T_{range}}T^2 + \frac{b}{T_{range}}TT_{min} = -T_{max} + 2 T - T_{min}  $$
+$$\frac{b}{T_{range}}T_{max} T  - \frac{b}{T_{range}}T^2 + \frac{b}{T_{range}}TT_{min} - 2 T = -T_{max}  - T_{min} + \frac{b}{T_{range}}T_{max}T_{min} $$
+$$- \frac{b}{T_{range}}T^2 + \left (\frac{b}{T_{range}}(T_{max}+ T_{min}) - 2 \right ) T = -T_{max}  - T_{min} + \frac{b}{T_{range}}T_{max}T_{min} $$
+$$- \frac{b}{T_{range}}T^2 + \left (\frac{b}{T_{range}}(T_{range}+ 2T_{min}) - 2 \right ) T = -T_{range}  - 2T_{min} + \frac{b}{T_{range}}(T_{min}+T_{range})T_{min} $$
+$$- \frac{b}{T_{range}}T^2 + \left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right ) T + \left (T_{range}  + 2T_{min} - \frac{b}{T_{range}}(T_{min}+T_{range})T_{min} \right ) =0$$
+
+$$T_{1,2}=\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}, a=- \frac{b}{T_{range}}, b= \left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right ), c=T_{range}  + 2T_{min} - \frac{b}{T_{range}}(T_{min}+T_{range})T_{min}$$
+$$T_{1,2}=\frac{-\left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right ) \pm \sqrt{\left (b+ \frac{b}{T_{range}}2T_{min} - 2 \right )^2 - 4(- \frac{b}{T_{range}})(T_{range}  + 2T_{min} - \frac{b}{T_{range}}(T_{min}+T_{range})T_{min})}}{-2 \frac{b}{T_{range}}}$$
+$$T_{1,2}=\frac{
+-(b+ 2\frac{b}{T_{range}}T_{min} - 2)  
+\pm \sqrt{
+\left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 
++ 4\frac{b}{T_{range}}(T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}(T_{min}+T_{range}))}}
+{-2 \frac{b}{T_{range}}}$$
+
+$$T_{1,2}=\frac{
+-(b+ 2\frac{b}{T_{range}}T_{min} - 2)  
+\pm \sqrt{
+\left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 
++ 4\frac{b}{T_{range}}(T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  )}}
+{-2 \frac{b}{T_{range}}}$$
+
+$$4\frac{b}{T_{range}}  (T_{range}  + 2T_{min} - \frac{b}{T_{range}}T_{min}T_{min} - bT_{min}  )$$
+$$4b  + 8\frac{b}{T_{range}}T_{min} - 4 \left ( \frac{b}{T_{range}}T_{min} \right )^2 - 4b\frac{b}{T_{range}}T_{min} $$
+$$T_{1,2}=\frac{
+-(b+ 2\frac{b}{T_{range}}T_{min} - 2)  
+\pm \sqrt{
+\left (b+ 2\frac{b}{T_{range}}T_{min} - 2 \right )^2 
++ 4b  + 8\frac{b}{T_{range}}T_{min} - 4 \left ( \frac{b}{T_{range}}T_{min} \right )^2 - 4b\frac{b}{T_{range}}T_{min} }}
+{-2 \frac{b}{T_{range}}}$$
+
+$$T_{1,2}=\frac{
+-b -2\frac{b}{T_{range}}T_{min} + 2
+\pm \sqrt{
+b^2+4 }}
+{-2 \frac{b}{T_{range}}}$$
+
+```{r}
+findOpt <- function(b, Trange, Tmin){
+  nom=-2*b/Trange
+  first = -b + nom*Tmin + 2
+  second = sqrt(b^2+4)
+  return( max(c((first+second)/nom, (first-second)/nom)) )
+}
+```
+
+
+```{r, eval=F}
+(c * (exp(b * (T - Tmin)/Trange) * (b/Trange)) * (Tmax - T) - 
+    c * exp(b * (T - Tmin)/Trange))
+* (T - Tmin) + c * exp(b * 
+    (T - Tmin)/Trange) * (Tmax - T)
+```
+
+
 ## Realized birth rate
 
 - Temperature dependence: $K_R$; shape of curve by $g$
@@ -571,7 +634,8 @@ ggplot()+
   annotate(geom = "label", x=26, y=0.1, label="A == f(R) * c", parse=T, size=6)+
   labs(x="Temperature", y = bquote(b[g]))+
   coord_cartesian(ylim=c(-0.2, 0.4))+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  geom_vline(xintercept = findOpt(b=b, Trange = 10, Tmin = 20 ))
 ```
 
 ## Simplification
