@@ -15,10 +15,12 @@
 #define E_K 0.71
 #define BOLTZMANN 8.62e-5
 #define NORMALTEMP 293.15
-#define MYMODEL_VERSION_BIG "1"
-#define MYMODEL_VERSION_SMALL "4"
-#define MYMODEL_VERSION "v" MYMODEL_VERSION_BIG "." MYMODEL_VERSION_SMALL
+#define MYMODEL_VERSION_MAYOR "1"
+#define MYMODEL_VERSION_MINOR "4"
 #define MYMODEL_VERSION_TEXT "it all seems coming together"
+
+#define MYMODEL_VERSION "v" MYMODEL_VERSION_MAYOR "." MYMODEL_VERSION_MINOR
+#define MYMODEL_VERSION_FULL MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT
 
 using namespace std;
 using namespace boost::numeric::odeint;
@@ -120,15 +122,16 @@ class Model {
 
 		void operator()( const state_type &x , state_type &dxdt , double t );
 
-		/// Compute Topt
-		/**
-		 * @param b b parameter describing the shape of the Eppley curve
-		 * @param Tmin minimal temperature for breeding range
-		 * @param Trange widht of breeding temperature
-		 * @return the temperature, where the genotype breeds the fastest
-		 */
-		const double optimalTemp(const double b, const double Tmin, const double Trange) const;
 };
+
+/// Compute Topt
+/**
+ * @param b b parameter describing the shape of the Eppley curve
+ * @param Tmin minimal temperature for breeding range
+ * @param Trange widht of breeding temperature
+ * @return the temperature, where the genotype breeds the fastest
+ */
+const double optimalTemp(const double b, const double Tmin, const double Trange);
 
 // better Reprter class than next one
 class Reporter2 {

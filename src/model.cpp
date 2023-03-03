@@ -356,7 +356,7 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
  *  {-2 \frac{b}{T_{range}}}
  * \f]
  */
-const double Model::optimalTemp(const double b, const double Tmin, const double Trange) const{
+const double optimalTemp(const double b, const double Tmin, const double Trange) {
 	const double nominator = -2*b/Trange, first = -b + nominator*Tmin + 2, second = std::sqrt(b*b+4);
 	return( std::max( (first+second)/nominator, (first-second)/nominator) );
 }
