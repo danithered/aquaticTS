@@ -252,6 +252,12 @@ void Model::setExtreme(unsigned int no, double until, double sd){
  * 	\f]
  * 	if \f$ \alpha=\frac{d_K M^{0.28}}{  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }}}, \beta = \frac{ 0.71 }{8.62 x 10^{-5} } \to K(T) = \alpha e^{\beta/T} \f$  
  *	So, the equation for resource is \f$ \frac{dR}{dt}= \rho(\alpha e^{\beta/T}-R) - f(R) \sum N_g \f$
+ *	
+ *	Do not forget, T is in Kelvins! So: \f$T=T^\circ+273.15\f$
+ *	
+ *	\f[
+ *		\frac{dR}{dt}= \rho(\alpha e^{\beta/(T^\circ + 273.15)}-R) - f(R) \sum N_g 
+ *	\f]
  *
  *	Resource-utility function of resource is a Holling type-2 utility function:  \f$f(R) = \frac{aR}{1+ahR} \f$ 
  *
@@ -291,7 +297,7 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 
 	// compute resource
 	feeding = x[1]*attack/(1+ah*x[1]);
-	dxdt[1] = rho * (alpha * std::exp(beta/x[0]) - x[1]) - feeding * sumN;
+	dxdt[1] = rho * (alpha * std::exp(beta/(x[0]+273.15)) - x[1]) - feeding * sumN;
 
 
 	//compute awake pop dervatives

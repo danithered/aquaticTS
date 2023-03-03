@@ -185,8 +185,8 @@ class Reporter {
 		void operator() (const state_type &x, const double t){
 			// add header if neccesary
 			if(!started){
-				file << "time\ttemperature";
-				for(unsigned int type = 1; type <= x.size()/2; type++) file << "\tN" << type << "\tD" << type;
+				file << "time\ttemperature\tresource";
+				for(unsigned int type = 1; type <= (x.size()-2)/2; type++) file << "\tN" << type << "\tD" << type;
 				file << std::endl;
 				started = true;
 			}

@@ -129,11 +129,11 @@ func2 <- function(t, state, parameters) {
     
     dX=(amp * sin(omega * (t + delay)) + mean - (B*X) )/C
     
-    w = t > et$min & t < et$max
-    if( any(w) ) {
-      #cat(paste(round(t, 3), round(X, 2), round(dX, 2), "\n") )
-      dX <- dX * et[w, "times"]
-    }
+    # w = t > et$min & t < et$max
+    # if( any(w) ) {
+    #   #cat(paste(round(t, 3), round(X, 2), round(dX, 2), "\n") )
+    #   dX <- dX * et[w, "times"]
+    # }
     list(dX, amp=amp, mean=mean)
   })
 }
@@ -512,6 +512,8 @@ $$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}
 $$\text{if } \alpha=\frac{d_K M^{0.28}}{  e^{\frac{0.71}{8.62 x 10^{-5} * 293.15 }}}, \beta = \frac{ 0.71 }{8.62 x 10^{-5} } \to K(T) = \alpha e^{\beta/T}$$
 
 $$\frac{dR}{dt}= \rho(\alpha e^{\beta/T}-R) - f(R) \sum N_g$$
+
+$$T=T^\circ+273.15$$
 
 
 ## Feeding
