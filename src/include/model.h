@@ -15,6 +15,10 @@
 #define E_K 0.71
 #define BOLTZMANN 8.62e-5
 #define NORMALTEMP 293.15
+#define MYMODEL_VERSION_BIG "1"
+#define MYMODEL_VERSION_SMALL "4"
+#define MYMODEL_VERSION "v" MYMODEL_VERSION_BIG "." MYMODEL_VERSION_SMALL
+#define MYMODEL_VERSION_TEXT "it all seems coming together"
 
 using namespace std;
 using namespace boost::numeric::odeint;

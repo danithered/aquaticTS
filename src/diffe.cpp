@@ -27,7 +27,11 @@ int main(){
 	std::string climate_file("IN/climate.tsv");
 	
 	// parse CLI
-	CLI::App cli{"This is an ODE simulation for..."};
+	CLI::App cli{
+		"This is an ODE simulation for examining the evolution of temperature response. "
+		"For further explanation see the Doxygen documentation by running `doxygen` and looking into doc/html/index.html \n"
+		MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT "\n"
+	};
 
 	cli.add_option("-R, --Trange", Trange, "Breeding temperature range of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::PositiveNumber)->capture_default_str();
 	cli.add_option("-M, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::PositiveNumber)->capture_default_str();
@@ -54,10 +58,10 @@ int main(){
 	cli.add_option("-D,--delta", delta, "death rate of dormant individuals")->check(CLI::PositiveNumber)->capture_default_str(); 
 
 	cli.set_config("--parameters");
-	cli.set_version_flag("-v,--version", "v1.4.0" );
+	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
 
 	CLI11_PARSE(cli);
-	std::cout << cli.config_to_str(true,false);
+	std::cout << cli.config_to_str(true,true);
 																	      
 	// inic rng
 	randomszam_inic(154, r);
