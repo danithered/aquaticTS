@@ -1,0 +1,103 @@
+---
+title: "Evolution of thermal reaction norms"
+subtitle: "results of a model realization"
+author: "Dániel Vörös"
+format: html
+echo: false
+params:
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_4"
+post-render: xcopy *_files output
+---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = params$dir)
+
+library(tidyr)
+library(cowplot)
+library(ggplot2)
+```
+
+
+```{r functions}
+findOpt <- function(Trange, Tmin, b=1.9){
+  nom=-2*b/Trange
+  first = -b + nom*Tmin + 2
+  second = sqrt(b^2+4)
+  return( max(c((first+second)/nom, (first-second)/nom)) )
+}
+
+```
+
+```{r}
+par <- readLines("params.ini")
+par <- strsplit(par[!substr(par, 1, 1) %in% c("", "#")], "=")
+par_names <- sapply(par, function(x) x[1])
+par <- lapply(par, function(x) x[2])
+names(par) <- par_names
+```
+
+```{r read_output}
+d <- read.table("output.tsv", sep="\t", header=T)
+
+types <- read.table("types.tsv", header=T)
+types$type <- as.numeric(substr(types$type,5, nchar(types$type)))
+
+#plot(d$time, d$temperature)
+#head(d)
+```
+
+
+```{r}
+b <- par$`Eppley-shape` 
+
+dl <- pivot_longer(d, !time & !resource & !temperature, names_to = "species", values_to = "abundance")
+dl$state <- as.factor(substr(dl$species,1,1))
+dl$type <- as.numeric(substr(dl$species,2,nchar(dl$species)))
+#dl$Trange <- sapply(dl$type,function(x) types[types$type == x, "Trange"])
+#dl$Tmin <- sapply(dl$type,function(x) types[types$type == x, "Tmin"])
+#dl$Topt <- sapply(dl$type,function(x) types[types$type == x, "Topt"])
+#dl$Topt <- apply(dl[,c("Tmin", "Trange")], 1, function(x) findOpt(Trange=x["Trange"], Tmin = x["Tmin"]))
+```
+
+# Parameters
+
+for simulation `r par$dir`
+
+```{r}
+knitr::kable(data.frame(parameter=names(par), value=unlist(par)), row.names = F)
+```
+
+# Plots
+
+## Timeplot
+
+```{r timeplot}
+ab <- ggplot(dl)+
+  geom_line(aes(x=time, y=abundance, color=species))+
+  theme(legend.position = "none")
+
+temp <- ggplot(dl)+
+  geom_line(aes(x=time, y=temperature))+
+  theme(legend.position = "none")
+
+res <- ggplot(dl)+
+  geom_line(aes(x=time, y=resource))+
+  theme(legend.position = "none")
+
+plot_grid(ab, temp, res, ncol=1)
+```
+
+## Abundance in last timestep
+
+```{r raster_plot}
+last_types <- dl[dl$time == max(dl$time) & dl$state == "N" & dl$abundance > 0, c("abundance", "type")]
+last_types <- cbind(
+  last_types, 
+  do.call(rbind, lapply(last_types$type, function(x) types[types$type == x, c("Trange", "Tmin")]) )
+  )
+
+ggplot(last_types, aes(Tmin, Trange))+
+  geom_raster(aes(fill=abundance))
+
+```
+
