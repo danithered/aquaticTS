@@ -3,10 +3,11 @@
 #include <randomgen.h>
 #include "CLI/CLI.hpp"
 #include "model.h"
+#include <filesystem>
 
 using namespace std;
 using namespace boost::numeric::odeint;
-
+namespace fs = std::filesystem;
 
 
 
@@ -24,7 +25,7 @@ int main(){
 	       h_min=0, h_range=0, 
 	       A=1, b=1.9, 
 	       delta = 0.1; 
-	std::string climate_file("IN/climate.tsv");
+	std::string climate_file("IN/climate.tsv"), output_dir("OUT"), ID("test");
 	
 	// parse CLI
 	CLI::App cli{
@@ -37,6 +38,8 @@ int main(){
 	cli.add_option("-M, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::PositiveNumber)->capture_default_str();
 
 	cli.add_option("-C,--climate_file", climate_file, "file for storing climate data, according to format: ...")->check(CLI::ExistingFile)->capture_default_str(); 
+	cli.add_option("-o,--output_dir", output_dir, "directory for storing output files")->capture_default_str(); 
+	cli.add_option("--ID", ID, "name of directory containing results (inside output_dir)")->capture_default_str(); 
 
 	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0))->capture_default_str();
 	cli.add_option("-I,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::PositiveNumber)->capture_default_str();
@@ -66,12 +69,25 @@ int main(){
 	// inic rng
 	randomszam_inic(154, r);
 
+	// Creating directories
+	fs::path outpath = output_dir;
+	outpath /= ID;
+	{
+		unsigned int counter = 0;
+		while(fs::is_directory(outpath)){ // change name until find a directory which did not existed before
+			outpath = fs::path(output_dir) / ID;
+			outpath += '_';
+			outpath += std::to_string(counter++);
+		}
+		fs::create_directories(outpath);
+	}
+
 	// open output
-	std::ofstream output("output.tsv");
+	std::ofstream output(outpath / "output.tsv" );
 	Reporter write(output);
 	
      	// inic output file for model variables
-	std::ofstream output_types("types.tsv");
+	std::ofstream output_types(outpath / "types.tsv");
 	output_types << "type\tTrange\tTmin\tTopt" << std::endl; // write header 
 	unsigned int type_counter = 0;
 							   
