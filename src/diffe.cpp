@@ -36,7 +36,7 @@ int main(){
 	};
 
 	cli.add_option("-R, --Trange", Trange, "Breeding temperature range of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::PositiveNumber)->capture_default_str();
-	cli.add_option("-M, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::PositiveNumber)->capture_default_str();
+	cli.add_option("-M, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->capture_default_str();
 
 	cli.add_option("-C,--climate_file", climate_file, "file for storing climate data, according to format: ...")->check(CLI::ExistingFile)->capture_default_str(); 
 	cli.add_option("-o,--output_dir", output_dir, "directory for storing output files")->capture_default_str(); 
@@ -89,8 +89,8 @@ int main(){
 	}
 
 	// open output
-	std::ofstream output(outpath / "output.tsv" );
-	Reporter write(output);
+//	std::ofstream output(outpath / "output.tsv" );
+	Reporter2 write( (outpath / "output.tsv").c_str() );
 	
      	// inic output file for model variables
 	std::ofstream output_types(outpath / "types.tsv");

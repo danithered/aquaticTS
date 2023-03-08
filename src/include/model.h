@@ -138,26 +138,23 @@ class Reporter2 {
 	private:
 		std::shared_ptr<std::ofstream> file;
 		std::shared_ptr<bool> started;
+		std::shared_ptr<double> next_output;
 
 	public:
-		Reporter2(const char *filename): file( new std::ofstream(filename) ){
-			*started = false;
+		Reporter2(const char *filename): file( new std::ofstream(filename) ), started(std::make_shared<bool>(false)), next_output(std::make_shared<double>(-1.0)){
 			if(!file->is_open()){
 				std::cerr << "File is not open: " << filename << std::endl;
 			}
 		}
 
 
-		~Reporter2(){
-			//file->close();
-			//delete file;
-		}
+		~Reporter2(){}
 
 		void operator() (const state_type &x, const double t){
 			// add header if neccesary
 			if(!*started){
-				*file << "time\ttemperature";
-				for(unsigned int type = 1; type < x.size(); type++) *file << "\ttype" << type;;
+				*file << "time\ttemperature\tresource";
+				for(unsigned int type = 1; type <= (x.size()-2)/2; type++) *file << "\tN" << type << "\tD" << type;
 				*file << std::endl;
 				*started = true;
 			}
