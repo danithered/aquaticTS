@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <ostream>
 #include <randomgen.h>
 #include "CLI/CLI.hpp"
 #include "model.h"
@@ -64,7 +65,6 @@ int main(){
 	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
 
 	CLI11_PARSE(cli);
-	std::cout << cli.config_to_str(true,true);
 																	      
 	// inic rng
 	randomszam_inic(154, r);
@@ -80,6 +80,12 @@ int main(){
 			outpath += std::to_string(counter++);
 		}
 		fs::create_directories(outpath);
+	}
+
+	// saving config
+	{
+		std::ofstream save_param_file(outpath / "params.ini");
+		save_param_file << cli.config_to_str(true,true);
 	}
 
 	// open output
