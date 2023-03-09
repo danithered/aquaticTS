@@ -2,19 +2,25 @@
 title: "Evolution of thermal reaction norms"
 subtitle: "results of a model realization"
 author: "Dániel Vörös"
-format: html
-echo: false
+format: 
+  html:
+    toc: true
+execute: 
+  echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_4"
-post-render: xcopy *_files output
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_7"
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{r setup}
+```{r setup, message=FALSE}
+#post-render: xcopy *_files output
 knitr::opts_knit$set(root.dir = params$dir)
 
 library(tidyr)
 library(cowplot)
 library(ggplot2)
+library(plotly)
 ```
 
 
@@ -25,6 +31,106 @@ findOpt <- function(Trange, Tmin, b=1.9){
   second = sqrt(b^2+4)
   return( max(c((first+second)/nom, (first-second)/nom)) )
 }
+CtoK <- function(x) return(x+273.15)
+KtoC <- function(x) return(x-273.15)
+K <- function(temp, mass=1, d=1) return(d*mass^0.28*exp(0.71*(293.15-temp)/8.62e-5/temp/293.15 ))
+KC <- function(temp, mass=1, d=1) return(d*mass^0.28*exp(0.71*(293.15-CtoK(temp) )/8.62e-5/CtoK(temp)/293.15 ))
+holling2 <- function(resource, attack=0.2, handling=0.4) attack * resource/(1 + attack * handling * resource)
+b6 <- function(T, Tmin, Tmax, Trange, b, compensation, sumN = 0){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  r = r - abs(r*sumN/KC(T, d=100))
+  return(ifelse(r < 0, 0, r))
+}
+
+b6mod <- function(T, Tmin, Tmax, Trange, b, compensation){
+  r = exp(b * (T-Tmin)/Trange) * (Tmax - T) * (T - Tmin) / compensation
+  return(ifelse(r < 0, 0, r))
+}
+
+findOpt <- function(b, Trange, Tmin){
+  nom=-2*b/Trange
+  first = -b + nom*Tmin + 2
+  second = sqrt(b^2+4)
+  return( max(c((first+second)/nom, (first-second)/nom)) )
+}
+
+plot_birthrate <- function(Tmin, Trange, b, A, range=c(Tmin-Trange/2, Tmin+Trange*1.5 ) ){
+  compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+  Topt = findOpt(b=b, Trange = Trange, Tmin = Tmin )
+  Topt_val = b6(Topt, Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensation, sumN = 0)
+  
+  #ggplotly(
+  ggplot()+
+    geom_vline(xintercept = Topt)+
+    geom_hline(yintercept = Topt_val)+
+    stat_function(fun = b6, 
+                  geom="area", fill="lightgreen",
+                  args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                  xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
+    geom_function(fun = b6, 
+                  args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
+                  #xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
+                  xlim = range  )+
+    annotate(geom = "label", x=Tmin+Trange/2, y=Topt_val/2, label="A == f(R) * a / c", parse=T, size=6)+
+    labs(x="Temperature", y = bquote(b[g]), caption = bquote(paste(T[min] == .(Tmin), ", ", T[range] == .(Trange) )))+
+    #coord_cartesian(ylim=c(-0.2, 0.4))+
+    theme(legend.position = "none")
+  #)
+}
+
+d9b <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10) abs(( T-at )/flatness)^pow+baseline
+
+plot_death <- function(Tmin, Trange, Topt, flatness, baseline, pow, range=c(Tmin-Trange/2, Tmin+Trange*1.5 )){
+  ggplot()+
+    stat_function(fun= d9b,
+                  geom="area",
+                  fill= "lightgreen",
+                  args=list(Tmin=Tmin, Trange=Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt),
+                  xlim=c(Tmin,Tmin+Trange),
+                  linewidth=3)+
+    geom_function(fun= d9b, 
+                  xlim=range, 
+                  args=list(Tmin=Tmin, Trange=Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt))+
+    coord_cartesian(ylim = c(0, NA))+
+    labs(y=bquote(delta[g]), x="Temperature", caption = bquote(paste(T[min] == .(Tmin), ", ", T[range] == .(Trange) )))
+}
+
+tsleep <- function(x, Tmin, Trange, hrange=0.8, hmin=0.1, at=0.5) hrange/( 1+exp(  x-at ) ) + hmin
+twake  <- function(x, Tmin, Trange, hrange=0.8, hmin=0.1, at=0.5) hrange/( 1+exp(-(x-at)) ) + hmin
+
+
+plot_sleep <- function(Tmin, Trange, Topt, hrange, hmin, range=c(Tmin-Trange/2, Tmin+Trange*1.5 )){
+  Tmax= Tmin + Trange
+  ggplot()+
+    stat_function(fun=tsleep,
+                  geom="area",
+                  fill= "lightgreen",
+                  args = list(Tmin=Tmin, Trange=Trange, hrange=hrange, hmin=hmin, at=Topt),
+                  xlim=c(Tmin,Tmax),
+                  linewidth=3)+
+    geom_function(fun=tsleep,
+                  args = list(Tmin=Tmin, Trange=Trange, hrange=hrange, hmin=hmin, at=Topt),
+                  xlim = range,
+                  linewidth=3)+
+    geom_function(fun=twake,
+                  args = list(Tmin=Tmin, Trange=Trange, hrange=hrange, hmin=hmin, at=Topt),
+                  xlim = range,
+                  linewidth=1, color="grey", linetype="dashed" )+
+    coord_cartesian(ylim=c(0,NA))+
+    #theme(axis.text = element_blank())+
+    labs(x="Temperature", y= bquote(P[sleep]), caption = bquote(paste(T[min] == .(Tmin), ", ", T[range] == .(Trange) )))
+}
+
+net_rep <- function(T, R, Tmin, Trange, b, flatness, baseline, pow, A, attack, handling){
+  Tmax= Tmin + Trange
+  Topt = findOpt(b=b, Trange = Trange, Tmin = Tmin )
+  feeding = holling2(R, attack=attack, handling=handling)
+  compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A/feeding
+  b <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
+  d <- d9b(T, Tmin, Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt)
+  return(b-d)
+}
+
 
 ```
 
@@ -34,21 +140,26 @@ par <- strsplit(par[!substr(par, 1, 1) %in% c("", "#")], "=")
 par_names <- sapply(par, function(x) x[1])
 par <- lapply(par, function(x) x[2])
 names(par) <- par_names
+
+b <- par$`Eppley-shape` 
 ```
 
 ```{r read_output}
 d <- read.table("output.tsv", sep="\t", header=T)
+```
 
+
+```{r read_types}
 types <- read.table("types.tsv", header=T)
 types$type <- as.numeric(substr(types$type,5, nchar(types$type)))
-
+minT <- min(types$Tmin)
+maxT <- max(types$Tmin+types$Trange)
 #plot(d$time, d$temperature)
 #head(d)
 ```
 
 
 ```{r}
-b <- par$`Eppley-shape` 
 
 dl <- pivot_longer(d, !time & !resource & !temperature, names_to = "species", values_to = "abundance")
 dl$state <- as.factor(substr(dl$species,1,1))
@@ -61,7 +172,7 @@ dl$type <- as.numeric(substr(dl$species,2,nchar(dl$species)))
 
 # Parameters
 
-for simulation `r par$dir`
+for simulation `r params$dir`
 
 ```{r}
 knitr::kable(data.frame(parameter=names(par), value=unlist(par)), row.names = F)
@@ -101,3 +212,522 @@ ggplot(last_types, aes(Tmin, Trange))+
 
 ```
 
+# The model
+
+$$C \frac{dT}{dt}=Q^* \sin{\omega t} + Q_0-B T$$
+
+$$\frac{dR}{dt}= \rho(K_R-R) - f(R) \sum N_g \\
+\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)\\
+\frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D$$
+
+# Parameter visualisations
+
+## Resource carrying capacity 
+
+$$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}$$
+
+| variable | name |                                                                                           | value               |
+|:---------|:-----|:------------------------------------------------------------------------------------------|--------------------:|
+| $T$      |      | temperature (in Kelvin)                                                                   | variable            |
+| $d_K$    | d_K  | parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K | `r (par$d_K)`  |
+| $M_i$    | mass | body mass                                                                                 | `r (par$mass)` |
+
+
+
+
+
+```{r}
+#| fig-align: center
+
+ggplot()+
+  geom_function(fun=KC, xlim=c(minT-10, maxT+10), args=list(mass=as.numeric(par$mass), d=as.numeric(par$d_K)) )+
+  labs(x="Temperature [°C]", y=bquote(paste("Carrying capapcity " (K[R]))) )+
+  scale_color_discrete(name=bquote(d[K] == {} ))
+```
+
+## Feeding
+
+$$f(R) = R \frac{a}{(1 + a h R)}$$
+
+| variable | name     |                                                                                  | value                       |
+|:---------|:---------|:---------------------------------------------------------------------------------|----------------------------:|
+| $R$      |          | resource                                                                         | variable                    |
+| $a$      | attack   | attack rate                                                                      | `r par$attack`              |
+| $h$      | handling | handling time                                                                    | `r par$handling`            |
+
+```{r}
+#| fig-align: center
+
+ggplot()+
+  geom_function(fun=holling2, xlim=c(0, 40), args=list(attack=as.numeric(par$attack), handling=as.numeric(par$handling) ))+
+  labs(x=bquote(K[R]), y=bquote(f(R)))
+```
+
+## Birth rate
+
+$$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
+
+$$c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
+
+| variable    | name         |                                                                     | value                         |
+|:------------|:-------------|:--------------------------------------------------------------------|------------------------------:|
+| $f(R)$      |              | feeding                                                             | see above                     |
+| $T_{max}$   |              | maximum of breeding temperature range                               | variable                      |
+| $T_{min}$   |              | minimum of breeding temperature range                               | variable                      |
+| $T_{range}$ |              | range of breeding temperature range $T_{max}-T_{min}$               | variable                      |
+| $a$         | Eppley-scale | scaling factor between feeding and birth                            | `r (par$"Eppley-scale")` |
+| $b$         | Eppley-shape | constant defining shape of Eppley-curve                             | `r (par$"Eppley-shape")` |
+
+
+```{r}
+A = as.numeric(par$"Eppley-scale")
+b = as.numeric(par$"Eppley-shape")
+```
+
+::: panel-tabset
+
+```{r}
+case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
+```
+ 
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+
+
+
+### Most abundant in last generation
+
+```{r}
+case = types[types$type == last_types[last_types$abundance == max(last_types$abundance), "type"],]
+```
+
+```{r}
+#| fig-align: center
+plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+```
+
+:::
+
+## Death rate
+
+$$\delta_g = {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b $$
+
+| variable    | name         |                                                                     | value                         |
+|:------------|:-------------|:--------------------------------------------------------------------|------------------------------:|
+| $d_f$       | death_flat   | flatness of mortality rate function                                 | `r (par$"death_flat")`   |
+| $d_b$       | death_basel  | baseline mortality                                                  | `r (par$"death_basel")`  |
+| $d_p$       | death_pow    | shape of the mortality function                                     | `r (par$"death_pow")`    |
+| $T_{opt}$   |              | optimal temperature computed from $T_{max}$, $T_{min}$ and $b$      | variable                      |
+
+
+::: panel-tabset
+
+```{r}
+case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+```{r}
+case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           range = c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+
+plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           range = c(minT-10, maxT+10))
+```
+
+### Most abundant in last generation
+
+```{r}
+case = types[types$type == last_types[last_types$abundance == max(last_types$abundance), "type"],]
+```
+
+```{r}
+#| fig-align: center
+plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           range = c(minT-10, maxT+10))
+```
+
+:::
+
+## Temperature depedence of dormancy
+
+$$h_{sleep}(T) = \frac{h_{range}}{1+e^{T-T_{opt}}} + h_{min}$$
+$$h_{wake}(T) = \frac{h_{range}}{1+e^{-(T-T_{opt}) }} + h_{min}$$
+
+| variable    | name         |                                                                     | value                         |
+|:------------|:-------------|:--------------------------------------------------------------------|------------------------------:|
+| $h_{range}$ | h_range      | range of sleeping                                                   | `r (par$h_range)`        |
+| $h_{min}$   | h_min        | baseline sleeping rate                                              | `r (par$h_min)`          |
+| $T_{opt}$   |              | optimal temperature computed from $T_{max}$, $T_{min}$ and $b$      | variable                      |
+
+### Most abundant type in last generation
+
+
+::: panel-tabset
+
+```{r}
+case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+           hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+           hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
+```
+
+
+
+
+
+```{r}
+case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+           hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
+```
+
+
+
+
+
+
+```{r}
+case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
+```
+
+### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+
+```{r}
+#| fig-align: center
+plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+           hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
+```
+
+### Most abundant in last generation
+
+```{r}
+case = types[types$type == last_types[last_types$abundance == max(last_types$abundance), "type"],]
+```
+
+```{r}
+#| fig-align: center
+plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+           hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
+```
+
+:::
+
+## Put it all together for the "winner"
+
+::: panel-tabset
+
+### plot
+
+```{r, eval=T}
+Tmin = case$Tmin
+Trange = case$Topt
+Tmax = Tmin+Trange
+```
+
+
+```{r, eval=F}
+#| fig-asp: 0.4
+#| fig-align: center
+#| out-width: 100%
+
+
+pow=3
+d_a = 50
+d_b = 0.15
+
+cols = brewer.pal(4, "BrBG")
+names(cols) <- LETTERS[1:4]
+names(cols) <- cols
+
+reso <- ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = KR10, 
+                args=list(sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = KR10, 
+                args=list(sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Resource"
+       )+
+  #coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+birth <- 
+  ggplot()+
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 0), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 10), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 40), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = b10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 80), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Birth rate"#, 
+       # caption = bquote(paste(T[min] == .(Tmin) ,
+       #                        ", ", T[max] == .(Tmax), 
+       #                        ", ", T[range] == .(Trange), 
+       #                        ", ", A == .(A), 
+       #                        ", ", b == .(b), 
+       #                        ", ", M == 1, 
+       #                        ", ", d[K] == 100,
+       #                        ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-0.5, 1))+
+  theme(legend.position = "none", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+death <- ggplot()+
+  geom_function(fun = d9b, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(Tmin=Tmin, Trange=Trange, pow=pow))+
+  #coord_cartesian(ylim=c(0, 1))+
+  labs(y="Death rate", x="Temperature")
+
+Rv10 <- ggplot()+
+  geom_rect(aes(xmin=Tmin, xmax=Tmax, ymin=-Inf, ymax=Inf), fill="red", alpha=0.1) +
+  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
+  geom_function(fun = ff10, 
+                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
+                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  labs(x="Temperature", y = "Net replication rate", 
+       subtitle = bquote(paste(T[min] == .(Tmin) ,
+                              ", ", T[max] == .(Tmax), 
+                              ", ", T[range] == .(Trange), 
+                              ", ", A == .(A), 
+                              ", ", b == .(b), 
+                              ", ", M == 1, 
+                              ", ", d[K] == 100,
+                              ", ", delta[N] == 0.2))
+       )+
+  #coord_cartesian(ylim=c(-1, 1))+
+  theme(legend.position = "none")
+
+
+plot_grid(plot_grid(reso, birth, death, ncol=1, align="v"), Rv10, ncol=2, rel_widths = c(1, 2))
+```
+
+
+### in 3D
+
+```{r, eval=T}
+temp <- seq(minT-10, maxT+10, 0.1)
+resource <- seq(0, 10)
+
+
+R <- outer(temp, resource, net_rep, 
+           flatness=as.numeric(par$death_flat), baseline=as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           A=as.numeric(par$`Eppley-scale`), 
+           Tmin=Tmin, Trange=Trange, 
+           b=as.numeric(par$`Eppley-shape`), 
+           attack = as.numeric(par$attack), handling = as.numeric(par$handling))
+
+
+plot_ly(y=temp, x=resource) |>
+  add_surface(z=R, contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      project=list(z=TRUE),
+      highlight=FALSE
+      ),
+    x = list(
+      highlightcolor="#ff0000",
+      show=F
+    ),
+    y = list(
+      highlight= FALSE
+    )
+    
+  )) |>
+  layout(scene = list(
+            xaxis = list(title = 'Resource'), 
+            yaxis = list(title = 'Temperature'),
+            zaxis = list(title = 'Replication rate'),
+            camera = list(
+              eye = list(z=0.5, y = 0.1, x=2)
+            )
+        )
+  )
+```
+
+### contour
+
+```{r, cache=F, eval=F}
+plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+  layout(
+            xaxis = list(title = 'N', autorange="reversed"), 
+            yaxis = list(title = 'Temperature')
+  )
+
+```
+
+
+:::
