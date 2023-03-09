@@ -380,7 +380,7 @@ void Reporter2::outputData(const state_type &x, const double t){
 	if(val != x.end()){
 		*file << '\t' << *val; // print temperature
 		for(++val; val != x.end(); ++val) // print rest
-			*file << '\t' << (*val<0.0)?0.0:*val; // in evaluation negative is considered 0.0, just I cant directly modify it, as it is passed as const and I dont want to cast it
+			*file << '\t' << ( (*val < 0.0)?0.0:*val ); // in evaluation negative is considered 0.0, just I cant directly modify it, as it is passed as const and I dont want to cast it
 	}
 
 	*file << std::endl;
