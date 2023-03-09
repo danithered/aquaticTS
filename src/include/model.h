@@ -91,7 +91,7 @@ class Model {
 		 * @param _attack
 		 * @param handling
 		 * @param mass the mass of one resource individual
-		 * @param
+		 * @param dK scaling variable between mass and
 		 * @param 
 		 * @param A scaling constant for breeding: scales \f$f(R)\f$ to \f$b_g\f$. Default is 1
 		 * @param b shape of Eppley curve. By default it is set to 1.9
@@ -133,78 +133,73 @@ class Model {
  */
 const double optimalTemp(const double b, const double Tmin, const double Trange);
 
-// better Reprter class than next one
+/// custom Reporter for ODE output
+/**
+ * tab separated values with header  
+ * the order of output: time temperature resource N1 D1 ...
+ */
 class Reporter2 {
 	private:
 		std::shared_ptr<std::ofstream> file;
 		std::shared_ptr<bool> started;
 		std::shared_ptr<double> next_output;
-		double output_interval;
+
+		void addHeader(const state_type &x);
+	
+		void outputData(const state_type &x, const double t);
 
 	public:
-		Reporter2(const char *filename): file( new std::ofstream(filename) ), started(std::make_shared<bool>(false)), next_output(std::make_shared<double>(0.0)), output_interval(0.0){
-			if(!file->is_open()){
-				std::cerr << "File is not open: " << filename << std::endl;
-			}
-		}
-
+		/// the interval of output
+		/**
+		 * in case the output is too verbose, set it to something positive value.
+		 * If it is 0.0, output will be generated every time.
+		 * If it is negative, output will be generated every time, only a bit slower.
+		 */
+		double output_interval;
+		
+		/// Constructor with filename
+		Reporter2(const char *filename);
 
 		~Reporter2(){}
 
-		void operator() (const state_type &x, const double t){
-			// add header if neccesary
-			if(!*started){
-				*file << "time\ttemperature\tresource";
-				for(unsigned int type = 1; type <= (x.size()-2)/2; type++) *file << "\tN" << type << "\tD" << type;
-				*file << std::endl;
-				*started = true;
-			}
-
-			// write data
-			*file << t;
-			for(auto & val : x) *file << '\t' << val;
-			*file << std::endl;
-
-			// flush
-			file->flush();
-		}
+		void operator() (const state_type &x, const double t);
 };
 
-class Reporter {
-	private:
-		std::ofstream &file;
-		bool started;
-
-	public:
-		Reporter(std::ofstream &output): file(output), started(false){
-			if(!file.is_open()){
-				std::cerr << "Output is not open!" << std::endl;
-			}
-		}
-
-
-		~Reporter(){
-			file.close();
-		}
-
-		void operator() (const state_type &x, const double t){
-			// add header if neccesary
-			if(!started){
-				file << "time\ttemperature\tresource";
-				for(unsigned int type = 1; type <= (x.size()-2)/2; type++) file << "\tN" << type << "\tD" << type;
-				file << std::endl;
-				started = true;
-			}
-
-			// write data
-			file << t;
-			for(auto & val : x) file << '\t' << val;
-			file << std::endl;
-
-			// flush
-			file.flush();
-		}
-};
+//class Reporter {
+//	private:
+//		std::ofstream &file;
+//		bool started;
+//
+//	public:
+//		Reporter(std::ofstream &output): file(output), started(false){
+//			if(!file.is_open()){
+//				std::cerr << "Output is not open!" << std::endl;
+//			}
+//		}
+//
+//
+//		~Reporter(){
+//			file.close();
+//		}
+//
+//		void operator() (const state_type &x, const double t){
+//			// add header if neccesary
+//			if(!started){
+//				file << "time\ttemperature\tresource";
+//				for(unsigned int type = 1; type <= (x.size()-2)/2; type++) file << "\tN" << type << "\tD" << type;
+//				file << std::endl;
+//				started = true;
+//			}
+//
+//			// write data
+//			file << t;
+//			for(auto & val : x) file << '\t' << val;
+//			file << std::endl;
+//
+//			// flush
+//			file.flush();
+//		}
+//};
 
 
 //ode_wrapper

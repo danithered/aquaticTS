@@ -25,7 +25,8 @@ int main(){
 	       death_flat=50.0, death_basel=0.05, death_pow=2.0, 
 	       h_min=0, h_range=0, 
 	       A=1, b=1.9, 
-	       delta = 0.1; 
+	       delta = 0.1,
+	       output_interval=0.0; 
 	std::string climate_file("IN/climate.tsv"), output_dir("OUT"), ID("test");
 	
 	// parse CLI
@@ -60,6 +61,7 @@ int main(){
 	cli.add_option("-A,--Eppley-scale", A, "scaling factor for Eppley curve")->check(CLI::PositiveNumber)->capture_default_str(); 
 	cli.add_option("-b,--Eppley-shape", b, "shape of Eppley curve")->capture_default_str(); 
 	cli.add_option("-D,--delta", delta, "death rate of dormant individuals")->check(CLI::PositiveNumber)->capture_default_str(); 
+	cli.add_option("-O,--output_interval", output_interval, "The interval between output entries. Set it to zero (0.0) to output every time.")->capture_default_str(); 
 
 	cli.set_config("--parameters");
 	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
@@ -91,6 +93,7 @@ int main(){
 	// open output
 //	std::ofstream output(outpath / "output.tsv" );
 	Reporter2 write( (outpath / "output.tsv").c_str() );
+	write.output_interval = output_interval;
 	
      	// inic output file for model variables
 	std::ofstream output_types(outpath / "types.tsv");

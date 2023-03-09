@@ -1,6 +1,4 @@
-#include <fstream>
 #include <model.h>
-#include <stdexcept>
 
 Model::Model(const Model& orig):
 	feeding(0.0),
@@ -359,5 +357,46 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 const double optimalTemp(const double b, const double Tmin, const double Trange) {
 	const double nominator = -2*b/Trange, first = -b + nominator*Tmin + 2, second = std::sqrt(b*b+4);
 	return( std::max( (first+second)/nominator, (first-second)/nominator) );
+}
+
+Reporter2::Reporter2(const char *filename): file( new std::ofstream(filename) ), started(std::make_shared<bool>(false)), next_output(std::make_shared<double>(0.0)), output_interval(0.0){
+	if(!file->is_open()){
+		std::cerr << "File is not open: " << filename << std::endl;
+	}
+}
+
+void Reporter2::addHeader(const state_type &x){
+	*file << "time\ttemperature\tresource";
+	for(unsigned int type = 1; type <= (x.size()-2)/2; type++) *file << "\tN" << type << "\tD" << type;
+	*file << std::endl;
+	*started = true;
+}
+
+void Reporter2::outputData(const state_type &x, const double t){
+	// print time
+	*file << t;
+
+	auto val = x.begin();
+	if(val != x.end()){
+		*file << '\t' << *val; // print temperature
+		for(++val; val != x.end(); ++val) // print rest
+			*file << '\t' << (*val<0.0)?0.0:*val; // in evaluation negative is considered 0.0, just I cant directly modify it, as it is passed as const and I dont want to cast it
+	}
+
+	*file << std::endl;
+
+	// flush
+	file->flush();
+}
+
+void Reporter2::operator() (const state_type &x, const double t){
+	if(output_interval == 0.0){ // output if: there is no interval set
+		if(!*started) addHeader(x); // add header if neccesary
+		outputData(x, t); // write data
+	} else if(t >= *next_output){ // output if: 
+		if(!*started) addHeader(x); // add header if neccesary
+		outputData(x, t); // write data
+		*next_output += output_interval; // update time of next_output
+	}
 }
 
