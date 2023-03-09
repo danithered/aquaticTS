@@ -139,9 +139,10 @@ class Reporter2 {
 		std::shared_ptr<std::ofstream> file;
 		std::shared_ptr<bool> started;
 		std::shared_ptr<double> next_output;
+		double output_interval;
 
 	public:
-		Reporter2(const char *filename): file( new std::ofstream(filename) ), started(std::make_shared<bool>(false)), next_output(std::make_shared<double>(-1.0)){
+		Reporter2(const char *filename): file( new std::ofstream(filename) ), started(std::make_shared<bool>(false)), next_output(std::make_shared<double>(0.0)), output_interval(0.0){
 			if(!file->is_open()){
 				std::cerr << "File is not open: " << filename << std::endl;
 			}
