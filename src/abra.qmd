@@ -131,6 +131,15 @@ net_rep <- function(T, R, Tmin, Trange, b, flatness, baseline, pow, A, attack, h
   return(b-d)
 }
 
+only_rep <- function(T, R, Tmin, Trange, b, A, attack, handling){
+  Tmax= Tmin + Trange
+  feeding = holling2(R, attack=attack, handling=handling)
+  compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A/feeding
+  b <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
+  
+  return(b)
+}
+
 
 ```
 
@@ -571,107 +580,100 @@ plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt,
 
 ```{r, eval=T}
 Tmin = case$Tmin
-Trange = case$Topt
+Trange = case$Trange
 Tmax = Tmin+Trange
+Topt = case$Topt
 ```
 
 
-```{r, eval=F}
+```{r, eval=T}
 #| fig-asp: 0.4
 #| fig-align: center
 #| out-width: 100%
 
+reses <- seq(0,10)
 
-pow=3
-d_a = 50
-d_b = 0.15
-
-cols = brewer.pal(4, "BrBG")
-names(cols) <- LETTERS[1:4]
-names(cols) <- cols
-
-reso <- ggplot()+
-  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
-  geom_function(fun = KR10, 
-                args=list(sumN = 0), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
-  geom_function(fun = KR10, 
-                args=list(sumN = 10), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
-  geom_function(fun = KR10, 
-                args=list(sumN = 40), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
-  geom_function(fun = KR10, 
-                args=list(sumN = 80), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
-  labs(x="Temperature", y = "Resource"
-       )+
-  #coord_cartesian(ylim=c(-0.5, 1))+
-  theme(legend.position = "top", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+#cols <-brewer.pal(length(reses), "BrBG")
 
 birth <- 
   ggplot()+
-  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
-  geom_function(fun = b10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 0), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
-  geom_function(fun = b10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 10), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
-  geom_function(fun = b10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 40), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
-  geom_function(fun = b10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, sumN = 80), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
-  labs(x="Temperature", y = "Birth rate"#, 
-       # caption = bquote(paste(T[min] == .(Tmin) ,
-       #                        ", ", T[max] == .(Tmax), 
-       #                        ", ", T[range] == .(Trange), 
-       #                        ", ", A == .(A), 
-       #                        ", ", b == .(b), 
-       #                        ", ", M == 1, 
-       #                        ", ", d[K] == 100,
-       #                        ", ", delta[N] == 0.2))
-       )+
-  #coord_cartesian(ylim=c(-0.5, 1))+
-  theme(legend.position = "none", axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    #scale_colour_manual(values=cols, labels=as.character(reses), name=bquote(paste( N == {} )) )+
+    labs(x="Temperature", y = "Birth rate"#, 
+         # caption = bquote(paste(T[min] == .(Tmin) ,
+         #                        ", ", T[max] == .(Tmax), 
+         #                        ", ", T[range] == .(Trange), 
+         #                        ", ", A == .(A), 
+         #                        ", ", b == .(b), 
+         #                        ", ", M == 1, 
+         #                        ", ", d[K] == 100,
+         #                        ", ", delta[N] == 0.2))
+         )+
+    #coord_cartesian(ylim=c(-0.5, 1))+
+    theme(legend.position = "top", 
+          axis.title.x = element_blank()#, 
+          #axis.text.x = element_blank(), axis.ticks.x = element_blank()
+          )
+
+
+for(res in reses){
+  birth <- birth +
+    geom_function(fun = only_rep, 
+                  args=list(R=res, 
+                            Tmin=Tmin, Trange=Trange, 
+                            b=as.numeric(par$`Eppley-shape`), A=as.numeric(par$`Eppley-scale`), 
+                            attack=as.numeric(par$attack), handling=as.numeric(par$handling)), 
+                  xlim = c(minT-10, maxT+10), 
+                  color=as.character(res+1)  )
+}
+
 
 death <- ggplot()+
-  geom_function(fun = d9b, xlim=c(Tmin-Trange/10,Tmax+Trange/10), args=list(Tmin=Tmin, Trange=Trange, pow=pow))+
+  geom_function(fun = d9b, 
+                xlim=c(minT-10, maxT+10), 
+                args=list(Tmin=Tmin, Trange=Trange, 
+                          pow=as.numeric(par$death_pow), flatness=as.numeric(par$death_flat), baseline=as.numeric(par$death_basel), 
+                          at=Topt))+
   #coord_cartesian(ylim=c(0, 1))+
-  labs(y="Death rate", x="Temperature")
+  labs(y="Death rate", x="Temperature")+
+  theme(
+    axis.title.x = element_blank()
+  )
 
-Rv10 <- ggplot()+
+Rn <- ggplot()+
   geom_rect(aes(xmin=Tmin, xmax=Tmax, ymin=-Inf, ymax=Inf), fill="red", alpha=0.1) +
-  scale_colour_manual(values=cols, labels=c("80", "40", "0", "10"), name=bquote(paste( sum(), N == {} )) )+
-  geom_function(fun = ff10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 0, d_a=d_a, d_b=d_b), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[1]) )+
-  geom_function(fun = ff10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 10, d_a=d_a, d_b=d_b), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[2]) )+
-  geom_function(fun = ff10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 40, d_a=d_a, d_b=d_b), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[3]))+
-  geom_function(fun = ff10, 
-                args=list(Tmin=Tmin, Tmax=Tmax, Trange=Trange, b=b, compensation=compensation, sumN = 80, d_a=d_a, d_b=d_b), 
-                xlim = c(Tmin-Trange/10,Tmax+Trange/10), aes(color=cols[4])) +
+  #scale_colour_manual(values=cols, labels=names(cols), name=bquote(paste( sum(), N == {} )) )+
   labs(x="Temperature", y = "Net replication rate", 
-       subtitle = bquote(paste(T[min] == .(Tmin) ,
+       caption = bquote(paste(T[min] == .(Tmin) ,
                               ", ", T[max] == .(Tmax), 
-                              ", ", T[range] == .(Trange), 
-                              ", ", A == .(A), 
-                              ", ", b == .(b), 
-                              ", ", M == 1, 
-                              ", ", d[K] == 100,
-                              ", ", delta[N] == 0.2))
+                              ", ", T[range] == .(Trange)#, 
+                              # ", ", A == .(A), 
+                              # ", ", b == .(b), 
+                              # ", ", M == 1, 
+                              # ", ", d[K] == 100,
+                              # ", ", delta[N] == 0.2
+                              ))
        )+
   #coord_cartesian(ylim=c(-1, 1))+
-  theme(legend.position = "none")
+  theme(legend.position = "top")
+
+for(res in reses){
+  Rn <- Rn +
+    geom_function(fun = net_rep, 
+                args=list(
+                  R=res,
+                  flatness=as.numeric(par$death_flat), 
+                  baseline=as.numeric(par$death_basel), 
+                  pow=as.numeric(par$death_pow), 
+                  A=as.numeric(par$`Eppley-scale`), 
+                  Tmin=Tmin, Trange=Trange, 
+                  b=as.numeric(par$`Eppley-shape`), 
+                  attack = as.numeric(par$attack), handling = as.numeric(par$handling)), 
+                xlim = c(minT-10, maxT+10),
+                color=as.character(res+1))
+}
 
 
-plot_grid(plot_grid(reso, birth, death, ncol=1, align="v"), Rv10, ncol=2, rel_widths = c(1, 2))
+plot_grid(plot_grid(birth, death, ncol=2, align="h"), Rn, ncol=1, rel_heights = c(1, 2))
 ```
 
 
@@ -720,10 +722,10 @@ plot_ly(y=temp, x=resource) |>
 
 ### contour
 
-```{r, cache=F, eval=F}
-plot_ly(x=sumN, y=temp, z=R, type="contour")|>
+```{r, cache=F, eval=T}
+plot_ly(x=resource, y=temp, z=R, type="contour")|>
   layout(
-            xaxis = list(title = 'N', autorange="reversed"), 
+            xaxis = list(title = 'Resource', autorange="reversed"), 
             yaxis = list(title = 'Temperature')
   )
 
