@@ -289,6 +289,7 @@ ggplot()+
   
 ```
 
+
 ### parameters
 
 ```{r, cache=F}
@@ -297,6 +298,59 @@ print_params(amp_min, amp_max, heat_capacity, parameters)
 ```
 
 :::
+
+## Extreme version 2
+
+```{r}
+add_extremes <- function(Tpar, no_extremes, prob_warm=0.5, l_extreme = 0.2, d_extreme=10){
+  for(tx  in runif(no_extremes, min=0, max=max(Tpar$tfrom)) ){
+    length_extreme = abs(rnorm(1, l_extreme, 0.1))
+    diff_extreme = rnorm(1, d_extreme, 1)
+    
+    smaller = max(which(Tpar$tfrom < tx))
+    
+    while(Tpar$tfrom[smaller+1] < (tx+length_extreme)){
+      tx = runif(1, min=0, max=max(Tpar$tfrom))
+      smaller = max(which(Tpar$tfrom < tx))
+    }
+    
+    before = Tpar[1:smaller,]
+    after = Tpar[(smaller+1):nrow(Tpar),]
+    
+    if(runif(1) < prob_warm){ # warmer
+      event = data.frame(tfrom=c(tx, tx+length_extreme), 
+                         mean=c(Tpar[smaller, ]$mean + diff_extreme, Tpar[smaller, ]$mean), 
+                         amp = Tpar[smaller, ]$amp, 
+                         amplitude=NA, 
+                         T0=NA)
+    } else { # colder
+          event = data.frame(tfrom=c(tx, tx+length_extreme), 
+                         mean=c(Tpar[smaller, ]$mean - diff_extreme, Tpar[smaller, ]$mean), 
+                         amp = Tpar[smaller, ]$amp, 
+                         amplitude=NA, 
+                         T0=NA)
+    }
+    
+    Tpar <- rbind(before, event, after)
+  }
+  return(Tpar)
+}
+
+parameters$Tpar <- add_extremes(parameters$Tpar, 3)
+
+out2 <- ode(y = state, times = times, func = func2, parms = parameters)
+
+ggplot()+
+  #geom_ribbon(data=b3_rep, aes(x=month, ymin=tmin, ymax=tmax), fill="coral")+
+  geom_ribbon(data=b3_s, aes(x=spline_x, ymax=spline_hi, ymin=spline_lo), fill="coral")+
+  geom_line(data=as.data.frame(out2), aes(x=time, y=X, color=amp), linewidth=1.5)+
+  coord_cartesian(xlim = range(times))+
+  labs(x="Time", y="Temperature")+
+  theme(legend.position = "none")
+
+```
+
+
 
 ## Extreme temperature deviations
 

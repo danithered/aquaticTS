@@ -8,7 +8,7 @@ format:
 execute: 
   echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_7"
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_9"
 editor_options: 
   chunk_output_type: console
 ---
@@ -210,7 +210,7 @@ plot_grid(ab, temp, res, ncol=1)
 ## Abundance in last timestep
 
 ```{r raster_plot}
-last_types <- dl[dl$time == max(dl$time) & dl$state == "N" & dl$abundance > 0, c("abundance", "type")]
+last_types <- dl[dl$time == max(dl$time) & dl$state == "N", c("abundance", "type")]
 last_types <- cbind(
   last_types, 
   do.call(rbind, lapply(last_types$type, function(x) types[types$type == x, c("Trange", "Tmin")]) )
@@ -221,13 +221,53 @@ ggplot(last_types, aes(Tmin, Trange))+
 
 ```
 
+## Averages over time
+
+```{r}
+types$Tmax <- types$Tmin+types$Trange
+
+avgs <- dl[dl$state == "N", ] |> 
+  group_by(time) |>
+  summarise(
+    mean_Tmin = weighted.mean(sapply(type, function(x, types) types[types$type==x, "Tmin"], types), abundance),
+    mean_Tmax = weighted.mean(sapply(type, function(x, types) types[types$type==x, "Tmax"], types), abundance),
+    mean_Topt = weighted.mean(sapply(type, function(x, types) types[types$type==x, "Topt"], types), abundance))
+
+ggplot(avgs, aes(x=time))+
+  geom_ribbon(aes(ymin=mean_Tmin, ymax=mean_Tmax), alpha=0.5)+
+  geom_line(aes(y=mean_Topt))+
+  labs(y="Mean of optimal temperature range", x="Time")
+```
+
+## Winner strategy over time
+
+```{r, message=FALSE}
+bests <- 
+  dl[dl$state == "N", ] |> 
+  group_by(time) |>
+  summarise(
+    best_type = type[abundance == max(abundance)],
+    no_bests = length(type[abundance == max(abundance)]),
+    best_Tmin = mean(types[types$type == type[abundance == max(abundance)],"Tmin"]),
+    best_Topt = mean(types[types$type == type[abundance == max(abundance)],"Topt"]),
+    best_Tmax = mean(types[types$type == type[abundance == max(abundance)],"Tmax"]) )
+  
+ggplot(bests[bests$no_bests==1,], aes(x=time))+
+  geom_ribbon(aes(ymin=best_Tmin, ymax=best_Tmax), alpha=0.5)+
+  geom_line(aes(y=best_Topt))+
+  labs(y="Temperature range of most abundant genotype", x="Time")
+```
+
+
 # The model
 
 $$C \frac{dT}{dt}=Q^* \sin{\omega t} + Q_0-B T$$
 
-$$\frac{dR}{dt}= \rho(K_R-R) - f(R) \sum N_g \\
-\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)\\
-\frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D$$
+$$\frac{dR}{dt}= \rho(K_R-R) - f(R) \sum N_g$$
+
+$$\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)$$
+
+$$\frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D$$
 
 # Parameter visualisations
 
@@ -269,14 +309,14 @@ $$f(R) = R \frac{a}{(1 + a h R)}$$
 
 ggplot()+
   geom_function(fun=holling2, xlim=c(0, 40), args=list(attack=as.numeric(par$attack), handling=as.numeric(par$handling) ))+
-  labs(x=bquote(K[R]), y=bquote(f(R)))
+  labs(x="R", y=bquote(f(R)))
 ```
 
 ## Birth rate
 
 $$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
 
-$$c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
+$$c_g(b, T_{range}) = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
 
 | variable    | name         |                                                                     | value                         |
 |:------------|:-------------|:--------------------------------------------------------------------|------------------------------:|
@@ -645,7 +685,8 @@ Rn <- ggplot()+
   labs(x="Temperature", y = "Net replication rate", 
        caption = bquote(paste(T[min] == .(Tmin) ,
                               ", ", T[max] == .(Tmax), 
-                              ", ", T[range] == .(Trange)#, 
+                              ", ", T[range] == .(Trange), 
+                              ", ", T[opt] == .(Topt)#, 
                               # ", ", A == .(A), 
                               # ", ", b == .(b), 
                               # ", ", M == 1, 
