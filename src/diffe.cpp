@@ -1,10 +1,13 @@
 #include <fstream>
 #include <iostream>
 #include <ostream>
-#include <randomgen.h>
+#include <ctime>
+#include <filesystem>
+
+#include "randomgen.h"
 #include "CLI/CLI.hpp"
 #include "model.h"
-#include <filesystem>
+
 
 using namespace std;
 using namespace boost::numeric::odeint;
@@ -69,6 +72,7 @@ int main(){
 	CLI11_PARSE(cli);
 																	      
 	// inic rng
+	time_t timer;
 	randomszam_inic(154, r);
 
 	// Creating directories
@@ -126,7 +130,9 @@ int main(){
 	ode_wrapper mod(&m);
 	//integrate_adaptive( make_controlled( 1E-12 , 1E-12 , stepper_type() ) , lorenz , x , 0.0 , 25.0 , 0.1 , write_lorenz);
 	//integrate( model , x , 0.0 , 25.0 , 0.1 , write_model );
+	timer = time(0); std::cout << "Started model " << outpath << " at " << ctime(&timer) << std::endl;
 	integrate_const( runge_kutta4< state_type >(), mod , x , 0.0 , 25.0 , 0.001 , write  );
+	timer = time(0); std::cout << "Model finished at " << ctime(&timer) << std::endl;
 
 
 	//close rng

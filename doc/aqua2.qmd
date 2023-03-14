@@ -335,7 +335,10 @@ add_extremes <- function(Tpar, no_extremes, prob_warm=0.5, l_extreme = 0.2, d_ex
   }
   return(Tpar)
 }
+```
 
+
+```{r}
 parameters$Tpar <- add_extremes(parameters$Tpar, 3)
 
 out2 <- ode(y = state, times = times, func = func2, parms = parameters)
