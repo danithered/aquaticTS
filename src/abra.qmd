@@ -213,13 +213,22 @@ plot_grid(ab, temp, res, ncol=1)
 last_types <- dl[dl$time == max(dl$time) & dl$state == "N", c("abundance", "type")]
 last_types <- cbind(
   last_types, 
-  do.call(rbind, lapply(last_types$type, function(x) types[types$type == x, c("Trange", "Tmin")]) )
+  do.call(rbind, lapply(last_types$type, function(x) types[types$type == x, c("Trange", "Tmin", "Topt")]) )
   )
 
 ggplot(last_types, aes(Tmin, Trange))+
   geom_raster(aes(fill=abundance))
 
 ```
+
+```{r}
+try({
+ggplot(last_types, aes(Tmin, Trange))+
+  geom_raster(aes(fill=Topt))+
+  labs(title="Topt")
+})
+```
+
 
 ## Averages over time
 

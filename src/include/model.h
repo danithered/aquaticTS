@@ -16,8 +16,8 @@
 #define BOLTZMANN 8.62e-5
 #define NORMALTEMP 293.15
 #define MYMODEL_VERSION_MAYOR "1"
-#define MYMODEL_VERSION_MINOR "4"
-#define MYMODEL_VERSION_TEXT "it all seems coming together"
+#define MYMODEL_VERSION_MINOR "5"
+#define MYMODEL_VERSION_TEXT "genotypes change by b too"
 
 #define MYMODEL_VERSION "v" MYMODEL_VERSION_MAYOR "." MYMODEL_VERSION_MINOR
 #define MYMODEL_VERSION_FULL MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT
@@ -99,6 +99,7 @@ class Model {
 		 */
 		Model(std::vector<double> & Tranges, 
 				std::vector<double> & Tmins, 
+				std::vector<double> & bs, 
 				const double _heat_capacity,
 				const double _attack,
 				const double handling,
@@ -112,7 +113,6 @@ class Model {
 				const double h_min=0.1, 
 				const double h_range=0.8, 
 				const double A=1, 
-				const double b=1.9, 
 				const double delta = 0.1,
 				const double _omega = 2 * M_PI); 
 

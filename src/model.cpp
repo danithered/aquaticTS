@@ -82,6 +82,7 @@ Model::Model(const Model& orig):
  */
 Model::Model(std::vector<double> & Tranges, 
 		std::vector<double> & Tmins, 
+		std::vector<double> & bs, 
 		const double _heat_capacity,
 		const double _attack,
 		const double handling,
@@ -95,7 +96,6 @@ Model::Model(std::vector<double> & Tranges,
 		const double h_min, 
 		const double h_range, 
 		const double A, 
-		const double b, 
 		const double delta, 
 		const double _omega): 
 	feeding(0.0),
@@ -127,7 +127,7 @@ Model::Model(std::vector<double> & Tranges,
 			 * */ 
 
 			// compute genotype specific variables
-			const double Tmin = Tmins[i], Trange = Tranges[i], Tmax = Trange + Tmin; // for temperature
+			const double Tmin = Tmins[i], Trange = Tranges[i], b = bs[i], Tmax = Trange + Tmin; // for temperature
 //			const double Topt = Tmin + Trange*r_opt; // optimal temperature
 			const double Topt = optimalTemp(b, Tmin, Trange);
 			const double base = std::exp(b / Trange), compensation = A / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
