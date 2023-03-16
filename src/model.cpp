@@ -23,10 +23,10 @@ Model::Model(const Model& orig):
  *  \frac{dD_g}{dt}= N_g h_{sleep}(T) - D_g h_{wake}(T) - D_g \delta_D
  * \f]
  * \f[
- *  b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c \\
+ *  b_g(T) = f(R) s e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c \\
  *  c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3 \\
- *  b_g(T) = f(R) a e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{a}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d
- *  B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{a}{c}
+ *  b_g(T) = f(R) s e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{s}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d
+ *  B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{s}{c}
  * \f]
  * \f[
  *  T_{opt}= \text{see: optimalTemp} \\  
@@ -69,7 +69,7 @@ Model::Model(const Model& orig):
  * | compensation| \f$ A              \f$ | compensation of Eppley curve, computed in constructor                                     | constatnt        |
  * | diff        | \f$ d = T-T_{min}  \f$ | temperature differnece, computed inside lambda function                                   | variable         |
  * | b           | \f$ b              \f$ | shape of Eppley curve                                                                     | 1.9              |
- * | A           | \f$ a              \f$ | scaling factor for Eppley curve - parameter                                               | 1                |
+ * | s           | \f$ s              \f$ | scaling factor for Eppley curve - parameter                                               | 1                |
  * | Topt_at     | \f$ r_{opt}        \f$ | optimal tempertature as percentage of Trange                                              | 0.2              |
  * | death_flat  | \f$ d_f            \f$ | scaling constant for death rate flatness: its reciproc slope                              | 50               |
  * | death_basel | \f$ d_b            \f$ | baseline of death: the value of death rate at minimal                                     | 0.05             |
@@ -89,13 +89,12 @@ Model::Model(std::vector<double> & Tranges,
 		const double mass,
 		const double dK,
 		const double _rho, 
-		const double r_opt, 
 		const double death_flat, 
 		const double death_basel, 
 		const double death_pow, 
 		const double h_min, 
 		const double h_range, 
-		const double A, 
+		const double s, 
 		const double delta, 
 		const double _omega): 
 	feeding(0.0),
@@ -130,7 +129,7 @@ Model::Model(std::vector<double> & Tranges,
 			const double Tmin = Tmins[i], Trange = Tranges[i], b = bs[i], Tmax = Trange + Tmin; // for temperature
 //			const double Topt = Tmin + Trange*r_opt; // optimal temperature
 			const double Topt = optimalTemp(b, Tmin, Trange);
-			const double base = std::exp(b / Trange), compensation = A / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
+			const double base = std::exp(b / Trange), compensation = s / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
 			const unsigned int gplus = g+1; //pos of dormant stage
 
 			//add function for awake population

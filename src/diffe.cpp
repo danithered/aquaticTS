@@ -26,7 +26,7 @@ int main(){
 	       attack=1, handling=1,
 	       death_flat=50.0, death_basel=0.05, death_pow=2.0, 
 	       h_min=0, h_range=0, 
-	       A=1, 
+	       s=1, 
 	       delta = 0.1,
 	       output_interval=0.0, duration=25.0; 
 	std::string climate_file("IN/climate.tsv"), output_dir("OUT"), ID("test");
@@ -38,37 +38,37 @@ int main(){
 		MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT "\n"
 	};
 
+	cli.add_option("-o,--output_dir", output_dir, "directory for storing output files")->capture_default_str()->group("General settings"); 
+	cli.add_option("--ID", ID, "name of directory containing results (inside output_dir)")->capture_default_str()->group("General settings"); 
+	cli.add_option("-C,--climate_file", climate_file, "file for storing climate data, according to format: ...")->check(CLI::ExistingFile)->capture_default_str()->group("Climate settings"); 
+
 	cli.add_option("-R, --Trange", Trange, "Breeding temperature range of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::NonNegativeNumber)->capture_default_str()->group("Genotype settings");
-	cli.add_option("-M, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::Validator(CLI::NonNegativeNumber).application_index(2))->capture_default_str()->group("Genotype settings");
+	cli.add_option("-L, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::Validator(CLI::NonNegativeNumber).application_index(2))->capture_default_str()->group("Genotype settings");
+	cli.add_option("-b,--Eppley-shape", b, "Shape of Eppley curve. If one value provided, than identity, if three values, than: from - to - by")->expected(1,3)->capture_default_str()->group("Genotype settings"); 
+	
+	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0))->capture_default_str()->group("Initial values");
+	cli.add_option("-I,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
+	cli.add_option("-i,--inicDormant", inicDormant, "Initial value for all of dormant genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
+	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings")->group("Climate settings");
+	cli.add_option("-n,--no_T_regimes", no_T_regimes, "Number of different temperature regimes.")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings");
+	cli.add_option("-P,--inicR", inicR, "Initial resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Initial values"); 
+	cli.add_option("-Q,--rho", rho, "Speed of resource dynamics")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-M,--mass", mass, "Body mass of the resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-m,--d_K", d_K, "Parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-a,--attack", attack, "Attack rate of the consumer for Holling type-2 reponse")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-H,--handling", handling, "Handling rate of the consumer for Holling type-2 response")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-f,--death_flat", death_flat, "Scaling constant for death rate flatness: its reciproc slope")->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-d,--death_basel", death_basel, "Baseline of death: the value of death rate at minima")->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-p,--death_pow", death_pow, "Power of the death function: the shape of the curve. To have a constant death rate set it to 0 and death rate will be 1-death_basel")->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-w,--h_min", h_min, "Minimal rate of producing dormant offsprings")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-W,--h_range", h_range, "Difference between maximal and minimal rate of producing dormant offsprings")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-s,--Eppley-scale", s, "Scaling factor for Eppley curve")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-D,--delta", delta, "Death rate of dormant individuals")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-O,--output_interval", output_interval, "The interval between output entries. Set it to zero (0.0) to output every time.")->capture_default_str()->group("General settings"); 
+	cli.add_option("-t,--duration", duration, "The lentgh of the simulation in years.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("General settings"); 
 
-	cli.add_option("-C,--climate_file", climate_file, "file for storing climate data, according to format: ...")->check(CLI::ExistingFile)->capture_default_str(); 
-	cli.add_option("-o,--output_dir", output_dir, "directory for storing output files")->capture_default_str(); 
-	cli.add_option("--ID", ID, "name of directory containing results (inside output_dir)")->capture_default_str(); 
-
-	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0))->capture_default_str();
-	cli.add_option("-I,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::NonNegativeNumber)->capture_default_str();
-	cli.add_option("-i,--inicDormant", inicDormant, "Initial value for all of dormant genotypes")->check(CLI::NonNegativeNumber)->capture_default_str();
-	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::PositiveNumber)->capture_default_str();
-	cli.add_option("-n,--no_T_regimes", no_T_regimes, "Number of different temperature regimes.")->check(CLI::PositiveNumber)->capture_default_str();
-	cli.add_option("-P,--inicR", inicR, "Initial resource")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-Q,--rho", rho, "Speed of resource dynamics")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-W,--mass", mass, "Body mass of the resource")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-w,--d_K", d_K, "Body mass of the resource")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-a,--attack", attack, "Attack rate of the consumer for Holling type-2 reponse")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-H,--handling", handling, "Handling rate of the consumer for Holling type-2 response")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-f,--death_flat", death_flat, "Scaling constant for death rate flatness: its reciproc slope")->capture_default_str(); 
-	cli.add_option("-d,--death_basel", death_basel, "Baseline of death: the value of death rate at minima")->capture_default_str(); 
-	cli.add_option("-p,--death_pow", death_pow, "Power of the death function: the shape of the curve. To have a constant death rate set it to 0 and death rate will be 1-death_basel")->capture_default_str(); 
-	cli.add_option("-s,--h_min", h_min, "Minimal rate of producing dormant offsprings")->check(CLI::NonNegativeNumber)->capture_default_str(); 
-	cli.add_option("-S,--h_range", h_range, "Difference between maximal and minimal rate of producing dormant offsprings")->check(CLI::NonNegativeNumber)->capture_default_str(); 
-	cli.add_option("-A,--Eppley-scale", A, "Scaling factor for Eppley curve")->check(CLI::PositiveNumber)->capture_default_str(); 
-	cli.add_option("-b,--Eppley-shape", b, "Shape of Eppley curve. If one value provided, than identity, if three values, than: from - to - by")->expected(1,3)->capture_default_str(); 
-	cli.add_option("-D,--delta", delta, "Death rate of dormant individuals")->check(CLI::NonNegativeNumber)->capture_default_str(); 
-	cli.add_option("-O,--output_interval", output_interval, "The interval between output entries. Set it to zero (0.0) to output every time.")->capture_default_str(); 
-	cli.add_option("-t,--duration", duration, "The lentgh of the simulation in years.")->check(CLI::NonNegativeNumber)->capture_default_str(); 
-
-	cli.set_config("--parameters");
 	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
+	cli.set_config("--parameters");
 
 	CLI11_PARSE(cli);
 																	      
@@ -102,7 +102,7 @@ int main(){
 	
      	// inic output file for model variables
 	std::ofstream output_types(outpath / "types.tsv");
-	output_types << "type\tTrange\tTmin\tTopt" << std::endl; // write header 
+	output_types << "type\tTrange\tTmin\tTopt\tb" << std::endl; // write header 
 	unsigned int type_counter = 0;
 							   
 	// inic model states
@@ -123,14 +123,18 @@ int main(){
 		Tranges.push_back(T_range);
 		Tmins.push_back(T_min);
 		bs.push_back(bval);
-		output_types << "type" << ++type_counter << '\t' << T_range << '\t' << T_min << '\t' << optimalTemp(bval, T_min, T_range) << std::endl;
+		output_types << "type" << ++type_counter
+			<< '\t' << T_range
+			<< '\t' << T_min
+			<< '\t' << optimalTemp(bval, T_min, T_range)
+			<< '\t' << bval << std::endl;
 		x.push_back(inicAwake);
 		x.push_back(inicDormant);
 	}
 	output_types.close();
 
 	// inic model
-	Model m(Tranges, Tmins, bs, heat_capacity, attack, handling, mass, d_K, rho, 0.0, death_flat, death_basel, death_pow, h_min, h_range, A, delta, omega); 
+	Model m(Tranges, Tmins, bs, heat_capacity, attack, handling, mass, d_K, rho, death_flat, death_basel, death_pow, h_min, h_range, s, delta, omega); 
 
 	// set climate
 	std::ifstream climate(climate_file);

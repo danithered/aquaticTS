@@ -8,7 +8,7 @@ format:
 execute: 
   echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_9"
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_15"
 editor_options: 
   chunk_output_type: console
 ---
@@ -47,35 +47,52 @@ b6mod <- function(T, Tmin, Tmax, Trange, b, compensation){
   return(ifelse(r < 0, 0, r))
 }
 
-findOpt <- function(b, Trange, Tmin){
+findOpt <- Vectorize(function(b, Trange, Tmin){
   nom=-2*b/Trange
   first = -b + nom*Tmin + 2
   second = sqrt(b^2+4)
   return( max(c((first+second)/nom, (first-second)/nom)) )
-}
+})
 
 plot_birthrate <- function(Tmin, Trange, b, A, range=c(Tmin-Trange/2, Tmin+Trange*1.5 ) ){
-  compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
-  Topt = findOpt(b=b, Trange = Trange, Tmin = Tmin )
-  Topt_val = b6(Topt, Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensation, sumN = 0)
+
+  cols <- hcl.colors(n=length(b), palette = "viridis")  
+  names(cols) <- b
+  Topts <- findOpt(b=b, Trange = Trange, Tmin = Tmin )
+  compensations = (2+b+(b-2)*exp(b))*Trange^3/b^3/A
+  Topt_vals <- b6(Topts, Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensations, sumN = 0)
   
-  #ggplotly(
-  ggplot()+
-    geom_vline(xintercept = Topt)+
-    geom_hline(yintercept = Topt_val)+
-    stat_function(fun = b6, 
-                  geom="area", fill="lightgreen",
-                  args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
-                  xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
-    geom_function(fun = b6, 
-                  args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=b, compensation=compensation, sumN = 0), 
-                  #xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
-                  xlim = range  )+
-    annotate(geom = "label", x=Tmin+Trange/2, y=Topt_val/2, label="A == f(R) * a / c", parse=T, size=6)+
+  pl <- ggplot()+
+    geom_point(aes(x=Topts,
+                   y=Topt_vals, 
+                   color=as.character( b ) ))+
     labs(x="Temperature", y = bquote(b[g]), caption = bquote(paste(T[min] == .(Tmin), ", ", T[range] == .(Trange) )))+
     #coord_cartesian(ylim=c(-0.2, 0.4))+
-    theme(legend.position = "none")
-  #)
+    theme(legend.position = "top")
+  
+  for(bval in b){
+    compensation = (2+bval+(bval-2)*exp(bval))*Trange^3/bval^3/A
+    Topt = findOpt(b=bval, Trange = Trange, Tmin = Tmin )
+    Topt_val = b6(Topt, Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=bval, compensation=compensation, sumN = 0)
+    
+    pl = pl +
+      geom_vline(xintercept = Topt, color=cols[as.character(bval)], linetype="dotted")+
+      geom_hline(yintercept = Topt_val, color=cols[as.character(bval)], linetype="dotted")+
+      stat_function(fun = b6, 
+                    geom="area", alpha=0.5, 
+                    fill=cols[as.character(bval)],
+                    args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=bval, compensation=compensation, sumN = 0), 
+                    xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
+      geom_function(fun = b6,
+                    color=cols[as.character(bval)],
+                    args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=bval, compensation=compensation, sumN = 0), 
+                    #xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
+                    xlim = range  )
+  }
+  
+  pl + 
+    annotate(geom = "label", x=Tmin+Trange/2, y=Topt_val/2, label="A == f(R) * a / c", parse=T, size=6)+
+    scale_color_manual(values=cols, name="b")  
 }
 
 d9b <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10) abs(( T-at )/flatness)^pow+baseline
@@ -140,7 +157,17 @@ only_rep <- function(T, R, Tmin, Trange, b, A, attack, handling){
   return(b)
 }
 
-
+par_to_num <-function(par){
+  if(is.character(par)){
+    letters <- strsplit(par, "")[[1]]
+    if(sum(letters == "[") == 1 & sum(letters == "]") == 1){ # it is a vector
+      par = strsplit(substring(par, which(letters == "[")+1, which(letters == "]")-1), ",")[[1]]
+    } 
+    par = as.numeric(par) 
+  }
+    
+  return(par)
+}
 ```
 
 ```{r}
@@ -150,7 +177,11 @@ par_names <- sapply(par, function(x) x[1])
 par <- lapply(par, function(x) x[2])
 names(par) <- par_names
 
-b <- par$`Eppley-shape` 
+b <- par_to_num(par$`Eppley-shape`)
+if(length(b) > 1){
+  if(length(b)==3) b = seq(b[1],b[2],b[3])
+  else b = seq(b[1],b[2],1)
+}
 ```
 
 ```{r read_output}
@@ -210,14 +241,16 @@ plot_grid(ab, temp, res, ncol=1)
 ## Abundance in last timestep
 
 ```{r raster_plot}
+if(!"b" %in% colnames(types)) types$b <- b
 last_types <- dl[dl$time == max(dl$time) & dl$state == "N", c("abundance", "type")]
 last_types <- cbind(
   last_types, 
-  do.call(rbind, lapply(last_types$type, function(x) types[types$type == x, c("Trange", "Tmin", "Topt")]) )
+  do.call(rbind, lapply(last_types$type, function(x) types[types$type == x, c("Trange", "Tmin", "Topt", "b")]) )
   )
 
 ggplot(last_types, aes(Tmin, Trange))+
-  geom_raster(aes(fill=abundance))
+  geom_raster(aes(fill=abundance))+
+  facet_wrap(~b)
 
 ```
 
@@ -225,7 +258,8 @@ ggplot(last_types, aes(Tmin, Trange))+
 try({
 ggplot(last_types, aes(Tmin, Trange))+
   geom_raster(aes(fill=Topt))+
-  labs(title="Topt")
+  labs(title="Topt")+
+  facet_wrap(~b)
 })
 ```
 
@@ -323,7 +357,7 @@ ggplot()+
 
 ## Birth rate
 
-$$b_g(T) = f(R) a e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
+$$b_g(T) = f(R) s e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c$$
 
 $$c_g(b, T_{range}) = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3$$
 
@@ -333,13 +367,12 @@ $$c_g(b, T_{range}) = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}}
 | $T_{max}$   |              | maximum of breeding temperature range                               | variable                      |
 | $T_{min}$   |              | minimum of breeding temperature range                               | variable                      |
 | $T_{range}$ |              | range of breeding temperature range $T_{max}-T_{min}$               | variable                      |
-| $a$         | Eppley-scale | scaling factor between feeding and birth                            | `r (par$"Eppley-scale")` |
+| $s$         | Eppley-scale | scaling factor between feeding and birth                            | `r (par$"Eppley-scale")` |
 | $b$         | Eppley-shape | constant defining shape of Eppley-curve                             | `r (par$"Eppley-shape")` |
 
 
 ```{r}
 A = as.numeric(par$"Eppley-scale")
-b = as.numeric(par$"Eppley-shape")
 ```
 
 ::: panel-tabset
@@ -348,11 +381,11 @@ b = as.numeric(par$"Eppley-shape")
 case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
-plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+plot_birthrate(Tmin=case$Tmin[1], Trange=case$Trange[1], b=case$b, A=A, range = c(minT-10, maxT+10))
 ```
 
 
@@ -365,12 +398,12 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, 
 case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+plot_birthrate(Tmin=case$Tmin[1], Trange=case$Trange[1], b=case$b, A=A, range = c(minT-10, maxT+10))
 ```
 
 
@@ -383,12 +416,12 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, 
 case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
 ```
  
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+plot_birthrate(Tmin=case$Tmin[1], Trange=case$Trange[1], b=case$b, A=A, range = c(minT-10, maxT+10))
 ```
 
 
@@ -401,12 +434,12 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, 
 case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+plot_birthrate(Tmin=case$Tmin[1], Trange=case$Trange[1], b=case$b, A=A, range = c(minT-10, maxT+10))
 ```
 
 
@@ -425,7 +458,7 @@ case = types[types$type == last_types[last_types$abundance == max(last_types$abu
 
 ```{r}
 #| fig-align: center
-plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=b, A=A, range = c(minT-10, maxT+10))
+plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=case$b, A=A, range = c(minT-10, maxT+10))
 ```
 
 :::
@@ -448,12 +481,12 @@ $$\delta_g = {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b $$
 case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
            range = c(minT-10, maxT+10))
 ```
@@ -467,12 +500,12 @@ plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt,
 case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
            range = c(minT-10, maxT+10))
 ```
@@ -485,12 +518,12 @@ plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt,
 case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
            range = c(minT-10, maxT+10))
 ```
@@ -504,12 +537,12 @@ plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt,
 case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
 
-plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
            range = c(minT-10, maxT+10))
 ```
@@ -522,7 +555,8 @@ case = types[types$type == last_types[last_types$abundance == max(last_types$abu
 
 ```{r}
 #| fig-align: center
-plot_death(Tmin = case$Tmin, Trange= case$Trange, Topt = case$Topt, 
+
+plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
            range = c(minT-10, maxT+10))
 ```
@@ -549,11 +583,11 @@ $$h_{wake}(T) = \frac{h_{range}}{1+e^{-(T-T_{opt}) }} + h_{min}$$
 case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
-plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+plot_sleep(Tmin=case$Tmin[1], Trange=case$Trange[1], Topt=case$Topt[1], 
            hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
 ```
 
@@ -566,11 +600,11 @@ plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt,
 case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
-plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+plot_sleep(Tmin=case$Tmin[1], Trange=case$Trange[1], Topt=case$Topt[1], 
            hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
 ```
 
@@ -582,11 +616,11 @@ plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt,
 case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
-plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+plot_sleep(Tmin=case$Tmin[1], Trange=case$Trange[1], Topt=case$Topt[1], 
            hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
 ```
 
@@ -599,11 +633,11 @@ plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt,
 case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
 ```
 
-### $T_{min}=$ `r case$Tmin`, $T_{range}=$ `r case$Trange`
+### $T_{min}=$ `r case$Tmin[1]`, $T_{range}=$ `r case$Trange[1]`
 
 ```{r}
 #| fig-align: center
-plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+plot_sleep(Tmin=case$Tmin[1], Trange=case$Trange[1], Topt=case$Topt[1], 
            hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
 ```
 
@@ -615,7 +649,7 @@ case = types[types$type == last_types[last_types$abundance == max(last_types$abu
 
 ```{r}
 #| fig-align: center
-plot_sleep(Tmin=case$Tmin, Trange=case$Trange, Topt=case$Topt, 
+plot_sleep(Tmin=case$Tmin[1], Trange=case$Trange[1], Topt=case$Topt[1], 
            hrange = as.numeric(par$h_range), hmin = as.numeric(par$h_min), range=c(minT-10, maxT+10))
 ```
 
@@ -669,7 +703,7 @@ for(res in reses){
     geom_function(fun = only_rep, 
                   args=list(R=res, 
                             Tmin=Tmin, Trange=Trange, 
-                            b=as.numeric(par$`Eppley-shape`), A=as.numeric(par$`Eppley-scale`), 
+                            b=case$b, A=as.numeric(par$`Eppley-scale`), 
                             attack=as.numeric(par$attack), handling=as.numeric(par$handling)), 
                   xlim = c(minT-10, maxT+10), 
                   color=as.character(res+1)  )
@@ -695,9 +729,9 @@ Rn <- ggplot()+
        caption = bquote(paste(T[min] == .(Tmin) ,
                               ", ", T[max] == .(Tmax), 
                               ", ", T[range] == .(Trange), 
-                              ", ", T[opt] == .(Topt)#, 
+                              ", ", T[opt] == .(Topt), 
                               # ", ", A == .(A), 
-                              # ", ", b == .(b), 
+                               ", ", b == .(case$b)#, 
                               # ", ", M == 1, 
                               # ", ", d[K] == 100,
                               # ", ", delta[N] == 0.2
@@ -716,7 +750,7 @@ for(res in reses){
                   pow=as.numeric(par$death_pow), 
                   A=as.numeric(par$`Eppley-scale`), 
                   Tmin=Tmin, Trange=Trange, 
-                  b=as.numeric(par$`Eppley-shape`), 
+                  b=case$b, 
                   attack = as.numeric(par$attack), handling = as.numeric(par$handling)), 
                 xlim = c(minT-10, maxT+10),
                 color=as.character(res+1))
@@ -738,7 +772,7 @@ R <- outer(temp, resource, net_rep,
            flatness=as.numeric(par$death_flat), baseline=as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
            A=as.numeric(par$`Eppley-scale`), 
            Tmin=Tmin, Trange=Trange, 
-           b=as.numeric(par$`Eppley-shape`), 
+           b=case$b, 
            attack = as.numeric(par$attack), handling = as.numeric(par$handling))
 
 

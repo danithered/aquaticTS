@@ -93,7 +93,7 @@ class Model {
 		 * @param mass the mass of one resource individual
 		 * @param dK scaling variable between mass and
 		 * @param 
-		 * @param A scaling constant for breeding: scales \f$f(R)\f$ to \f$b_g\f$. Default is 1
+		 * @param s scaling constant for breeding: scales \f$f(R)\f$ to \f$b_g\f$. Default is 1
 		 * @param b shape of Eppley curve. By default it is set to 1.9
 		 * @param _omega: scaling weather to time. Set it to \f$2 \pi \f$ to have 1 year equal to 1.0 timestep
 		 */
@@ -106,13 +106,12 @@ class Model {
 				const double mass,
 				const double dK,
 				const double _rho, 
-				const double r_opt=0.2, 
 				const double death_flat=50.0, 
 				const double death_basel=0.05, 
 				const double death_pow=2.0, 
 				const double h_min=0.1, 
 				const double h_range=0.8, 
-				const double A=1, 
+				const double s=1, 
 				const double delta = 0.1,
 				const double _omega = 2 * M_PI); 
 
