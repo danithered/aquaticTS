@@ -747,6 +747,7 @@ ggplot()+
 ```
 
 
+
 ## Simplification
 
 $$T_{opt}=T_{min}+T_{range} r_{opt}$$
@@ -757,6 +758,33 @@ $$\delta_g = \left | \frac{T-T_{opt} }{d_{f}} \right |^{d_p}+d_b = \\
 
 $$\frac{dN_g}{dt}=N_g \left (b_g(T, R) - \delta(T) \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T) = \\
 \frac{dN_g}{dt}=N_g \left (f(R) A B^d (T_{max}-T)d - {\left | (T- T_{opt}) {d_f}^{-1} \right |^{d_p}} -d_b \right ) - N_g h_{sleep}(T) + D_g h_{wake}(T)$$
+
+## Death rate v 2
+
+Temperature acts on $\delta_g$
+
+- cold: death by freezing
+- warm: metabolism, low $O_2$
+
+$$d_N=d_{baseline}\frac{e^{-E_{freezing} \frac{293.15-T}{8.62\times10^{-5}*T*293.15}}+e^{E_{heat}\frac{293.15-T}{8.62\times10^{-5}*T*293.15}}}{2}$$
+
+```{r, eval=FALSE}
+#| fig-align: center
+
+d12 <- function(T, Efreeze, Eheat, death_basel) {
+  temp = (293.15-CtoK(T) )/8.62e-5/CtoK(T)/293.15
+  return(death_basel*(exp(-Efreeze*temp)+exp(Eheat*temp))/2)
+}
+
+ggplot()+
+  geom_function(fun= d12, 
+                xlim=c(-10, 50), 
+                args=list(Efreeze=0.2, Eheat=0.1, death_basel=1))+
+  #coord_cartesian(ylim = c(0, 1))+
+  labs(y=bquote(delta[g]), x="Temperature")
+
+```
+
 
 ## Replication
 

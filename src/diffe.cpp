@@ -52,10 +52,10 @@ int main(){
 	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings")->group("Climate settings");
 	cli.add_option("-n,--no_T_regimes", no_T_regimes, "Number of different temperature regimes.")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings");
 	cli.add_option("-P,--inicR", inicR, "Initial resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Initial values"); 
-	cli.add_option("-Q,--rho", rho, "Speed of resource dynamics")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-Q,--rho", rho, "Speed of resource dynamics. If you want to set Resource constant, make this and attack 0!")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-M,--mass", mass, "Body mass of the resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-m,--d_K", d_K, "Parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
-	cli.add_option("-a,--attack", attack, "Attack rate of the consumer for Holling type-2 reponse")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-a,--attack", attack, "Attack rate of the consumer for Holling type-2 reponse. If you want to set Resource constant, make this and rho 0!")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-H,--handling", handling, "Handling rate of the consumer for Holling type-2 response")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-f,--death_flat", death_flat, "Scaling constant for death rate flatness: its reciproc slope")->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-d,--death_basel", death_basel, "Baseline of death: the value of death rate at minima")->capture_default_str()->group("Dynamic constants"); 
