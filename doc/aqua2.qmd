@@ -766,24 +766,47 @@ Temperature acts on $\delta_g$
 - cold: death by freezing
 - warm: metabolism, low $O_2$
 
-$$d_N=d_{baseline}\frac{e^{-E_{freezing} \frac{293.15-T}{8.62\times10^{-5}*T*293.15}}+e^{E_{heat}\frac{293.15-T}{8.62\times10^{-5}*T*293.15}}}{2}$$
+$$\delta=d_{base} \left ( e^{E_{freezing} \frac{293.15-T}{8.62\times10^{-5}*T*293.15}}+e^{-E_{heat}\frac{293.15-T}{8.62\times10^{-5}*T*293.15}} \right )$$
+
 
 ```{r, eval=FALSE}
 #| fig-align: center
+d9 <- function(T, x1=0, curve1=1, x2=0, curve2=0) 1/(1+exp(-(T-x1)*curve1)) + 1/(1+exp((T-x2)*curve2))
 
-d12 <- function(T, Efreeze, Eheat, death_basel) {
+d12 <- function(T, Efreeze, Eheat, death_basel, shift=0) {
   temp = (293.15-CtoK(T) )/8.62e-5/CtoK(T)/293.15
-  return(death_basel*(exp(-Efreeze*temp)+exp(Eheat*temp))/2)
+  temp2 = (293.15-CtoK(T+shift) )/8.62e-5/CtoK(T+shift)/293.15
+  return(death_basel*(exp(Efreeze*temp)+exp(-Eheat*temp2)))
 }
 
 ggplot()+
   geom_function(fun= d12, 
                 xlim=c(-10, 50), 
-                args=list(Efreeze=0.2, Eheat=0.1, death_basel=1))+
-  #coord_cartesian(ylim = c(0, 1))+
-  labs(y=bquote(delta[g]), x="Temperature")
+                args=list(Efreeze=0.1, Eheat=0.3, death_basel=.5))+
+  coord_cartesian(ylim = c(0, 2))+
+  labs(y=bquote(delta[g]), x="Temperature")#+
+  #geom_hline(yintercept=.5, linetype="dashed")
 
 ```
+
+## Cant make it simpler
+
+$$\delta=d_{base}(e^{E_{freezing} \frac{293.15-T}{8.62\times10^{-5}*T*293.15}}+e^{-E_{heat}\frac{293.15-T}{8.62\times10^{-5}*T*293.15}} )= \\  
+d_{base}(
+e^{\frac{E_{frezing}}{8.62\times10^{-5}}/T} / e^{\frac{E_{freezing}}{8.62\times10^{-5}*293.15} }
++ e^{\frac{-E_{heat}}{8.62\times10^{-5}}/T} / e^{\frac{-E_{heat}}{8.62\times10^{-5}*293.15} } )= \\  
+d_{base}(
+e^{\frac{E_{frezing}}{8.62\times10^{-5}}/T} / e^{\frac{E_{freezing}}{8.62\times10^{-5}*293.15} }
++ e^{\frac{-E_{heat}}{8.62\times10^{-5}}/T} / e^{\frac{-E_{heat}}{8.62\times10^{-5}*293.15} } )= $$
+
+$$\frac{293.15-(T^{\circ}+273.15)}{8.62\times10^{-5}*(T^{\circ}+273.15)*293.15} =
+\frac{(293.15-273.15)-T^{\circ}}{(8.62\times10^{-5}*293.15*273.15)+(8.62\times10^{-5}*293.15)*T^{\circ}} = \\ 
+\frac{120 - T^{\circ}}{6.90+0.03T^{\circ}} = 
+\frac{120 }{6.90+0.03T^{\circ}} - \frac{T^{\circ}}{6.90+0.03T^{\circ}}$$
+
+$$\frac{293.15-T}{8.62\times10^{-5}*T*293.15} =
+\frac{1}{8.62\times10^{-5}*T} - \frac{1}{8.62\times10^{-5}*293.15}$$
+
 
 
 ## Replication

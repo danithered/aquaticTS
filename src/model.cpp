@@ -11,7 +11,8 @@ Model::Model(const Model& orig):
 	ah(orig.ah),
 	rho(orig.rho),
 	alpha(orig.alpha),
-	beta(orig.beta)
+	beta(orig.beta),
+	constant_death(orig.constant_death)
 	{std::cerr << "Copy constructor called" << std::endl;}
 
 /**
@@ -25,15 +26,32 @@ Model::Model(const Model& orig):
  * \f[
  *  b_g(T) = f(R) s e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) / c \\
  *  c_g(b, T_{range}) = \\ = \int_{T_{min}}^{T_{max}} e^{b \frac{T-T_{min}}{T_{range}}} (T_{max}-T)(T-T_{min}) ~ dT= \\ =  \frac{2 + b + (b - 2) e^b}{b^3} {T_{range}}^3 \\
- *  b_g(T) = f(R) s e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{s}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d
+ *  b_g(T) = f(R) s e^{\frac{b}{T_{range}}(T-T_{min})} (T_{max}-T)(T-T_{min}) / c = \\ = f(R) \frac{s}{c} \left(e^{ \frac{b}{T_{range}}}\right )^{(T-T_{min})} (T_{max}-T)(T-T_{min}) = \\ =f(R) A B^d (T_{max}-T)d \\ 
  *  B = e^{b/T_{range}}\\ d=T-T_{min}  \\  A = \frac{s}{c}
  * \f]
  * \f[
  *  T_{opt}= \text{see: optimalTemp} \\  
  *  T_{diff}=T-T_{opt}
+ *  \f]
+ *
+ * Version one death function:
+ *
+ * \f[
  *  \delta_g = \left | \frac{T-T_{opt} }{d_{f}} \right |^{d_p}+d_b = \\ 
  *  \delta_g = \left | (T-T_{opt})\frac{1}{d_{f}} \right |^{d_p}+d_b = \\ 
- *  = {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b \\
+ *  = {\left | (T-T_{opt}) {d_f}^{-1} \right |^{d_p}} +d_b = | T_{diff} d_f^{-1} |^{d_f} + d_b \\
+ * \f]
+ *
+ * Version two death function:
+ * 
+ *
+ * \f[
+ *  \delta=d_{base} \left ( e^{E_{freezing} \frac{293.15-T}{8.62\times10^{-5}*T*293.15}}+e^{-E_{heat}\frac{293.15-T}{8.62\times10^{-5}*T*293.15}} \right )
+ * \f]
+ *
+ * Dormancy:
+ *
+ * \f[
  *  h_{sleep}(T) = \frac{h_{range}}{1+e^{  T-T_{opt}  }} + h_{min} \\
  *  h_{wake}(T)  = \frac{h_{range}}{1+e^{-(T-T_{opt}) }} + h_{min}
  * \f]
@@ -92,12 +110,14 @@ Model::Model(std::vector<double> & Tranges,
 		const double death_flat, 
 		const double death_basel, 
 		const double death_pow, 
+		const bool _constant_death,
 		const double h_min, 
 		const double h_range, 
 		const double s, 
 		const double delta, 
 		const double _omega): 
 	feeding(0.0),
+	death_rate(0.0),
 	heat_capacity(_heat_capacity),
 	one_minus_heatcap(1-_heat_capacity),
 	omega(_omega),
@@ -105,10 +125,18 @@ Model::Model(std::vector<double> & Tranges,
 	C(_heat_capacity * B / _omega),
 	attack(_attack),
 	ah(_attack * handling),
+	constant_death(_constant_death),
 	rho(_rho),
-	alpha( dK*std::pow(mass, b_K) / std::exp( E_K / (BOLTZMANN * NORMALTEMP) ) ),
-	beta(E_K / BOLTZMANN)
+	alpha( dK*std::pow(mass, b_K) / std::exp( E_K / (BOLTZMANNxNORMALTEMP) ) ),
+	beta(E_K / BOLTZMANN),
+	death_variables()
 {
+		if(constant_death){
+			death_variables.push_back(death_basel);
+			death_variables.push_back(death_flat);
+			death_variables.push_back(-death_pow);
+		}
+
 
 		//start indexing
 		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
@@ -148,8 +176,9 @@ Model::Model(std::vector<double> & Tranges,
 						const double h_wake  = h_range / (1 + std::exp(-Tdiff)) + h_min; // waking up
 
 						// replication
+						const double death = constant_death?death_rate:(std::pow(std::abs( Tdiff * death_flat_reciproc), death_pow) + death_basel); 
 						const double repl_rate = feeding * compensation * std::pow(base, diff) * (Tmax - N[0]) * diff // breeding
-							- std::pow(std::abs( Tdiff * death_flat_reciproc), death_pow) - death_basel // death
+							- death // death
 							- h_sleep; // falling asleep
 
 
@@ -287,6 +316,13 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 		Tpar = &(Tpars.upper_bound(t)->second);
 	}
 	dxdt[0] = (Tpar->Qamp * std::sin(omega * t) + Tpar->Qmean - (B*x[0]) )/C;
+	const double tempinK = x[0] + ZEROTEMP;
+
+	//compute death rate if neccessary
+	if(constant_death){ 
+		double temptemp = (NORMALTEMP - tempinK) / (BOLTZMANNxNORMALTEMP * tempinK);
+		death_rate = death_variables[0]*( std::exp(death_variables[1]*temptemp) + std::exp(death_variables[2]*temptemp) ) ;
+	}
 
 	//compute sumN
 	double sumN = 0.0;
@@ -294,7 +330,7 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 
 	// compute resource
 	feeding = x[1]*attack/(1+ah*x[1]);
-	dxdt[1] = rho * (alpha * std::exp(beta/(x[0]+273.15)) - x[1]) - feeding * sumN;
+	dxdt[1] = rho * (alpha * std::exp(beta/( tempinK )) - x[1]) - feeding * sumN;
 
 
 	//compute awake pop dervatives

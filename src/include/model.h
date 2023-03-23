@@ -9,12 +9,16 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 #include "randomgen.h"
 
 #define b_K 0.28
 #define E_K 0.71
 #define BOLTZMANN 8.62e-5
 #define NORMALTEMP 293.15
+#define ZEROTEMP 273.15
+#define BOLTZMANNxNORMALTEMP BOLTZMANN * NORMALTEMP
+
 #define MYMODEL_VERSION_MAYOR "1"
 #define MYMODEL_VERSION_MINOR "5"
 #define MYMODEL_VERSION_TEXT "genotypes change by b too"
@@ -58,6 +62,7 @@ class Model {
 		//std::vector<std::function< void(const state_type&, state_type&, double) >> func_sleeping;
 		
 		double feeding;
+		double death_rate;
 
 		// climate constans
 		const double heat_capacity;
@@ -69,11 +74,13 @@ class Model {
 		// consumer dynamic constants
 		const double attack;
 		const double ah;
+		const bool constant_death;
 
 		// resource dynamic constants
 		const double rho;
 		const double alpha;
 		const double beta;
+		std::vector<double> death_variables;
 		
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
 		std::map<double, double> extreme;
@@ -109,6 +116,7 @@ class Model {
 				const double death_flat=50.0, 
 				const double death_basel=0.05, 
 				const double death_pow=2.0, 
+				const bool use_constant_death = false,
 				const double h_min=0.1, 
 				const double h_range=0.8, 
 				const double s=1, 

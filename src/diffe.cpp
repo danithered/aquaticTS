@@ -134,7 +134,7 @@ int main(){
 	output_types.close();
 
 	// inic model
-	Model m(Tranges, Tmins, bs, heat_capacity, attack, handling, mass, d_K, rho, death_flat, death_basel, death_pow, h_min, h_range, s, delta, omega); 
+	Model m(Tranges, Tmins, bs, heat_capacity, attack, handling, mass, d_K, rho, death_flat, death_basel, death_pow, false, h_min, h_range, s, delta, omega); 
 
 	// set climate
 	std::ifstream climate(climate_file);
