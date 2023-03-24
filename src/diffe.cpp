@@ -19,6 +19,7 @@ int main(){
 	// model parameters
 	std::vector<double> Trange{5,10,1};
 	std::vector<double> Tmin{10,20,1};
+	std::array<double, 3> death_variables{0.05, 50.0, 2.0};
 	std::vector<double> b{1.9};
 	unsigned int no_T_regimes = 1;
 	double inicTemp = 20.0, inicR=10.0, inicAwake = 10.0, inicDormant = 0.0,
@@ -30,6 +31,7 @@ int main(){
 	       delta = 0.1,
 	       output_interval=0.0, duration=25.0; 
 	std::string climate_file("IN/climate.tsv"), output_dir("OUT"), ID("test");
+	bool use_constant_death = false;
 	
 	// parse CLI
 	CLI::App cli{
@@ -45,6 +47,8 @@ int main(){
 	cli.add_option("-R, --Trange", Trange, "Breeding temperature range of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::NonNegativeNumber)->capture_default_str()->group("Genotype settings");
 	cli.add_option("-L, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::Validator(CLI::NonNegativeNumber).application_index(2))->capture_default_str()->group("Genotype settings");
 	cli.add_option("-b,--Eppley-shape", b, "Shape of Eppley curve. If one value provided, than identity, if three values, than: from - to - by")->expected(1,3)->capture_default_str()->group("Genotype settings"); 
+
+	cli.add_option("--death", death_variables, "Parameters describing the shape of degradataion function. Has to consist of 3 values.\nIn case --use_constant_death flag is not specified, the values are the following:\n\t death_basel, death_flat, death_pow\nIf it is not specified:\n\tdeath_base, E_freeze, E_heat")->expected(3)->capture_default_str()->group("Dynamic constants"); 
 	
 	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0))->capture_default_str()->group("Initial values");
 	cli.add_option("-I,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
@@ -57,9 +61,9 @@ int main(){
 	cli.add_option("-m,--d_K", d_K, "Parameter-specific constant calculated for a body mass of 1 g and temperature of 293.15 K")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-a,--attack", attack, "Attack rate of the consumer for Holling type-2 reponse. If you want to set Resource constant, make this and rho 0!")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-H,--handling", handling, "Handling rate of the consumer for Holling type-2 response")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
-	cli.add_option("-f,--death_flat", death_flat, "Scaling constant for death rate flatness: its reciproc slope")->capture_default_str()->group("Dynamic constants"); 
-	cli.add_option("-d,--death_basel", death_basel, "Baseline of death: the value of death rate at minima")->capture_default_str()->group("Dynamic constants"); 
-	cli.add_option("-p,--death_pow", death_pow, "Power of the death function: the shape of the curve. To have a constant death rate set it to 0 and death rate will be 1-death_basel")->capture_default_str()->group("Dynamic constants"); 
+	//cli.add_option("-f,--death_flat", death_flat, "Scaling constant for death rate flatness: its reciproc slope")->capture_default_str()->group("Dynamic constants"); 
+	//cli.add_option("-d,--death_basel", death_basel, "Baseline of death: the value of death rate at minima")->capture_default_str()->group("Dynamic constants"); 
+	//cli.add_option("-p,--death_pow", death_pow, "Power of the death function: the shape of the curve. To have a constant death rate set it to 0 and death rate will be 1-death_basel")->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-w,--h_min", h_min, "Minimal rate of producing dormant offsprings")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-W,--h_range", h_range, "Difference between maximal and minimal rate of producing dormant offsprings")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-s,--Eppley-scale", s, "Scaling factor for Eppley curve")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
@@ -67,6 +71,8 @@ int main(){
 	cli.add_option("-O,--output_interval", output_interval, "The interval between output entries. Set it to zero (0.0) to output every time.")->capture_default_str()->group("General settings"); 
 	cli.add_option("-t,--duration", duration, "The lentgh of the simulation in years.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("General settings"); 
 
+	cli.add_option("-2, --use_constant_death", use_constant_death, "Use genotype independent, but temperature dependent death curve.")->capture_default_str()->group("Dynamic constants");
+	
 	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
 	cli.set_config("--parameters");
 
@@ -134,7 +140,7 @@ int main(){
 	output_types.close();
 
 	// inic model
-	Model m(Tranges, Tmins, bs, heat_capacity, attack, handling, mass, d_K, rho, death_flat, death_basel, death_pow, false, h_min, h_range, s, delta, omega); 
+	Model m(Tranges, Tmins, bs, heat_capacity, attack, handling, mass, d_K, rho, death_variables, use_constant_death, h_min, h_range, s, delta, omega); 
 
 	// set climate
 	std::ifstream climate(climate_file);

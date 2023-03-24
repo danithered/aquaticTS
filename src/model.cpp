@@ -12,7 +12,8 @@ Model::Model(const Model& orig):
 	rho(orig.rho),
 	alpha(orig.alpha),
 	beta(orig.beta),
-	constant_death(orig.constant_death)
+	constant_death(orig.constant_death),
+	death_variables(orig.death_variables)
 	{std::cerr << "Copy constructor called" << std::endl;}
 
 /**
@@ -107,9 +108,10 @@ Model::Model(std::vector<double> & Tranges,
 		const double mass,
 		const double dK,
 		const double _rho, 
-		const double death_flat, 
-		const double death_basel, 
-		const double death_pow, 
+//		const double death_flat, 
+//		const double death_basel, 
+//		const double death_pow, 
+		std::array<double, 3> &_death_variables,
 		const bool _constant_death,
 		const double h_min, 
 		const double h_range, 
@@ -125,18 +127,15 @@ Model::Model(std::vector<double> & Tranges,
 	C(_heat_capacity * B / _omega),
 	attack(_attack),
 	ah(_attack * handling),
+	death_variables(_death_variables),
 	constant_death(_constant_death),
 	rho(_rho),
 	alpha( dK*std::pow(mass, b_K) / std::exp( E_K / (BOLTZMANNxNORMALTEMP) ) ),
-	beta(E_K / BOLTZMANN),
-	death_variables()
+	beta(E_K / BOLTZMANN)
 {
-		if(constant_death){
-			death_variables.push_back(death_basel);
-			death_variables.push_back(death_flat);
-			death_variables.push_back(-death_pow);
-		}
-
+		// death ralated settings
+		const double death_basel=death_variables[0], death_flat=death_variables[1], death_pow=death_variables[2];
+		if(constant_death) death_variables[2] = -death_variables[2];
 
 		//start indexing
 		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
