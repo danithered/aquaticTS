@@ -8,7 +8,7 @@ format:
 execute: 
   echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_16"
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_20"
 editor_options: 
   chunk_output_type: console
 ---
@@ -78,11 +78,11 @@ plot_birthrate <- function(Tmin, Trange, b, A, range=c(Tmin-Trange/2, Tmin+Trang
     pl = pl +
       geom_vline(xintercept = Topt, color=cols[as.character(bval)], linetype="dotted")+
       geom_hline(yintercept = Topt_val, color=cols[as.character(bval)], linetype="dotted")+
-      stat_function(fun = b6, 
-                    geom="area", alpha=0.5, 
-                    fill=cols[as.character(bval)],
-                    args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=bval, compensation=compensation, sumN = 0), 
-                    xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
+      # stat_function(fun = b6, 
+      #               geom="area", alpha=0.5, 
+      #               fill=cols[as.character(bval)],
+      #               args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=bval, compensation=compensation, sumN = 0), 
+      #               xlim = c(Tmin-Trange/2, Tmin+Trange*1.5 ) )+
       geom_function(fun = b6,
                     color=cols[as.character(bval)],
                     args=list(Tmin=Tmin, Tmax=Tmin+Trange, Trange=Trange, b=bval, compensation=compensation, sumN = 0), 
@@ -98,7 +98,7 @@ plot_birthrate <- function(Tmin, Trange, b, A, range=c(Tmin-Trange/2, Tmin+Trang
 # mapping d9 to d12: Efreeze=flatness, Eheat=pow, death_basel=baseline
 d9_12 <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10, constdeath=F){
   if(constdeath){ # use d12
-    return( d12m(T=T, Efreeze=flatness, Eheat=pow, death_basel=baseline) )
+    return( d12(T=T, Efreeze=flatness, Eheat=pow, death_basel=baseline) )
   } else { # use d9
     return(d9b(T=T, Tmin=Tmin, Trange=Trange, flatness=flatness, baseline=baseline, pow=pow, at=at))
   }
@@ -106,11 +106,11 @@ d9_12 <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10, con
 
 d9b <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10) abs(( T-at )/flatness)^pow+baseline
 
-# modifed version: Eheat argoment is negative by definition
-d12m <- function(T, Efreeze, Eheat, death_basel, shift=0) {
+
+d12 <- function(T, Efreeze, Eheat, death_basel, shift=0) {
   temp = (293.15-CtoK(T) )/8.62e-5/CtoK(T)/293.15
   temp2 = (293.15-CtoK(T+shift) )/8.62e-5/CtoK(T+shift)/293.15
-  return(death_basel*(exp(Efreeze*temp)+exp(Eheat*temp2)))
+  return(death_basel*(exp(Efreeze*temp)+exp(-Eheat*temp2)))
 }
 
 plot_death <- function(Tmin, Trange, Topt, flatness, baseline, pow, range=c(Tmin-Trange/2, Tmin+Trange*1.5 ), constdeath=F){
@@ -192,7 +192,7 @@ par_to_num <-function(par){
 }
 ```
 
-```{r}
+```{r reading_parameters}
 par <- readLines("params.ini")
 par <- strsplit(par[!substr(par, 1, 1) %in% c("", "#")], "=")
 par_names <- sapply(par, function(x) x[1])
@@ -223,7 +223,7 @@ maxT <- max(types$Tmin+types$Trange)
 ```
 
 
-```{r}
+```{r to_long_data}
 
 dl <- pivot_longer(d, !time & !resource & !temperature, names_to = "species", values_to = "abundance")
 dl$state <- as.factor(substr(dl$species,1,1))
@@ -238,7 +238,7 @@ dl$type <- as.numeric(substr(dl$species,2,nchar(dl$species)))
 
 for simulation `r params$dir`
 
-```{r}
+```{r print_parameters}
 knitr::kable(data.frame(parameter=names(par), value=unlist(par)), row.names = F)
 ```
 
@@ -278,7 +278,7 @@ ggplot(last_types, aes(Tmin, Trange))+
 
 ```
 
-```{r}
+```{r plot_Topts}
 try({
 ggplot(last_types, aes(Tmin, Trange))+
   geom_raster(aes(fill=Topt))+
@@ -290,7 +290,7 @@ ggplot(last_types, aes(Tmin, Trange))+
 
 ## Averages over time
 
-```{r}
+```{r plot_average_strategy_over_t}
 types$Tmax <- types$Tmin+types$Trange
 
 avgs <- dl[dl$state == "N", ] |> 
@@ -308,7 +308,7 @@ ggplot(avgs, aes(x=time))+
 
 ## Winner strategy over time
 
-```{r, message=FALSE}
+```{r plot_winner_strategy_over_t, message=FALSE}
 bests <- 
   dl[dl$state == "N", ] |> 
   group_by(time) |>
@@ -352,7 +352,7 @@ $$K(T, M) = d_K M^{0.28} e^{0.71 \frac{293.15 - T}{8.62 x 10^{-5} * T * 293.15}}
 
 
 
-```{r}
+```{r plot_par_KR}
 #| fig-align: center
 
 ggplot()+
@@ -371,7 +371,7 @@ $$f(R) = R \frac{a}{(1 + a h R)}$$
 | $a$      | attack   | attack rate                                                                      | `r par$attack`              |
 | $h$      | handling | handling time                                                                    | `r par$handling`            |
 
-```{r}
+```{r plot_par_feeding}
 #| fig-align: center
 
 ggplot()+
@@ -491,7 +491,7 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=case$b, A=A, range = c(minT
 
 ```{r}
 if( "use_constant_death" %in% names(par) ){ # new version
-  constdeath = as.logical(as.numeric(par$use_constant_death))
+  constdeath = par$use_constant_death %in% c("true", "1")
   death_variables = par_to_num(par$death)
   # if(constdeath){ # version 2 death
   #   
@@ -511,11 +511,11 @@ if( "use_constant_death" %in% names(par) ){ # new version
 ```{r, results='asis'}
 if(constdeath){
   cat("$$\\delta=d_{base} \\left ( e^{E_{freezing} \\frac{293.15-T}{8.62\\times10^{-5}*T*293.15}}+e^{-E_{heat}\\frac{293.15-T}{8.62\\times10^{-5}*T*293.15}} \\right )$$")
-  table_to_print <- data.frame(variable=c("$d_{base}$", "$E_{freeze}$", "$-E_{heat}$"), 
+  table_to_print <- data.frame(variable=c("$d_{base}$", "$E_{freeze}$", "$E_{heat}$"), 
                                name=c("death_base", "E_freeze", "E_heat"), 
-                               description=c("flatness of mortality rate function", 
-                                             "baseline mortality ", 
-                                             "shape of the mortality function"),
+                               description=c("elevation of mortality rate function", 
+                                             "speed of dying at a low temperature", 
+                                             "speed of dying at a high temperature"),
                                value=c(par$"death_basel", par$"death_flat", par$"death_pow"))
 } else {
   cat("$$\\delta_g = {\\left | (T-T_{opt}) {d_f}^{-1} \\right |^{d_p}} +d_b $$")
@@ -567,7 +567,8 @@ case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
 
 plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10))
+           range = c(minT-10, maxT+10),
+           constdeath = constdeath)
 ```
 
 
@@ -585,7 +586,8 @@ case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
 
 plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10))
+           range = c(minT-10, maxT+10),
+           constdeath = constdeath)
 ```
 
 
@@ -604,7 +606,8 @@ case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
 
 plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10))
+           range = c(minT-10, maxT+10),
+           constdeath = constdeath)
 ```
 
 ### Most abundant in last generation
@@ -618,7 +621,8 @@ case = types[types$type == last_types[last_types$abundance == max(last_types$abu
 
 plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10))
+           range = c(minT-10, maxT+10),
+           constdeath = constdeath)
 ```
 
 :::

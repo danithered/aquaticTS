@@ -47,8 +47,36 @@ b2 = as.data.frame(do.call(cbind, c(mins, maxs) )) |>
 b3 <- b2 |> pivot_wider(names_from = parameter, values_from = val)
 #b3 <- b3[,c("month", "tmin", "tmax")]
 
+# plotting it
 ggplot(b3, aes(x=month))+
   geom_linerange(aes(ymin=tmin, ymax=tmax))+
   labs(x="Month", y="Ground temperature [Celsius degree]")
 
+
+# saving
 write.table(b3, nameto, sep="\t", col.names = F, row.names = F)
+
+
+# plotting on a map
+library(sf)
+library("rnaturalearth")
+library("rnaturalearthdata")
+library(ggspatial)
+library(ggplot2)
+
+point = data.frame(
+  x=c(rep(point_x-width_x/2,2), rep(point_x+width_x/2, 2), point_x-width_x/2),
+  y=c(point_y-width_y/2, rep(point_y+width_y/2, 2), rep(point_y-width_y/2, 2))
+)
+
+world <- ne_countries(scale = "medium", type = 'map_units', returnclass = "sf")
+
+eu <- list(lat_from=34, lat_to=72, long_from=-25, long_to=45)
+
+ggplot(data = world) +
+  geom_sf()+
+  coord_sf(xlim=c(eu$long_from, eu$long_to ), ylim=c(eu$lat_from, eu$lat_to)) +
+  theme_bw()+
+  geom_polygon(data=point, aes(x=x, y=y), fill="red", color="red")+
+  xlab("Longitude (°E)") + ylab("Latitude (°N)")
+

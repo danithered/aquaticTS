@@ -48,7 +48,7 @@ int main(){
 	cli.add_option("-L, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::Validator(CLI::NonNegativeNumber).application_index(2))->capture_default_str()->group("Genotype settings");
 	cli.add_option("-b,--Eppley-shape", b, "Shape of Eppley curve. If one value provided, than identity, if three values, than: from - to - by")->expected(1,3)->capture_default_str()->group("Genotype settings"); 
 
-	cli.add_option("--death", death_variables, "Parameters describing the shape of degradataion function. Has to consist of 3 values.\nIn case --use_constant_death flag is not specified, the values are the following:\n\t death_basel, death_flat, death_pow\nIf it is not specified:\n\tdeath_base, E_freeze, E_heat")->expected(3)->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-d,--death", death_variables, "Parameters describing the shape of degradataion function. Has to consist of 3 values.\nIn case --use_constant_death flag is not specified, the values are the following:\n\t death_basel, death_flat, death_pow\nIf it is not specified:\n\tdeath_base, E_freeze, E_heat")->capture_default_str()->group("Dynamic constants"); 
 	
 	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0))->capture_default_str()->group("Initial values");
 	cli.add_option("-I,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
@@ -71,7 +71,7 @@ int main(){
 	cli.add_option("-O,--output_interval", output_interval, "The interval between output entries. Set it to zero (0.0) to output every time.")->capture_default_str()->group("General settings"); 
 	cli.add_option("-t,--duration", duration, "The lentgh of the simulation in years.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("General settings"); 
 
-	cli.add_option("-2, --use_constant_death", use_constant_death, "Use genotype independent, but temperature dependent death curve.")->capture_default_str()->group("Dynamic constants");
+	cli.add_flag("-2, --use_constant_death", use_constant_death, "Use genotype independent, but temperature dependent death curve.")->capture_default_str()->group("Dynamic constants");
 	
 	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
 	cli.set_config("--parameters");

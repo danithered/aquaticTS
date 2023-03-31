@@ -782,8 +782,8 @@ d12 <- function(T, Efreeze, Eheat, death_basel, shift=0) {
 ggplot()+
   geom_function(fun= d12, 
                 xlim=c(-10, 50), 
-                args=list(Efreeze=0.1, Eheat=0.3, death_basel=.5))+
-  coord_cartesian(ylim = c(0, 2))+
+                args=list(Efreeze=0.1, Eheat=0.3, death_basel=.1))+
+  coord_cartesian(ylim = c(0, 1))+
   labs(y=bquote(delta[g]), x="Temperature")#+
   #geom_hline(yintercept=.5, linetype="dashed")
 
