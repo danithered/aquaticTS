@@ -42,6 +42,16 @@ To get help with setting the paramters of the simulations see: `./simulation --h
 
 The file `./src/get_climate.R` gives you all the help you need to get input climate files for the simulations. As a prequisite you have to install **R** (`sudo apt install r-base`) and get a code editor for *.R* files (for biologists *RStudio* is recommended).
 
+### Plot results
+
+To plot the results with our tool, you need to install the followings: (https://cran.r-project.org/)[R], some R packages (tidyr, cowplot, ggplot2, plotly), (https://quarto.org/docs/get-started/)[Quarto] and an internet browser (I guess you already have one).
+
+When running the simulations you are prompted the output dir (let's say it is `OUT/test`). So you can create the plots with
+
+`./makereport.sh OUT/test`
+
+The script will open the plots for you in your default internet browser.
+
 ## Citation
 
 soon :D
