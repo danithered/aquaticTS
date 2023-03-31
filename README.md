@@ -16,7 +16,7 @@ Developed and tested on Debian 12.
 Before installation, please make sure you have the followings installed and in `$PATH`.
 
 - gcc, pkg-config, make (`sudo apt install build-essential`)
-- GNU Scientific Library (https://www.gnu.org/software/gsl/)
+- [GNU Scientific Library](https://www.gnu.org/software/gsl/)
 - Boost (`sudo apt install libboost-all-dev`)
 
 And of course you have to download the neccessary files. The easiest way to do so is:
@@ -44,7 +44,7 @@ The file `./src/get_climate.R` gives you all the help you need to get input clim
 
 ### Plot results
 
-To plot the results with our tool, you need to install the followings: (https://cran.r-project.org/)[R], some R packages (tidyr, cowplot, ggplot2, plotly), (https://quarto.org/docs/get-started/)[Quarto] and an internet browser (I guess you already have one).
+To plot the results with our tool, you need to install the followings: [R](https://cran.r-project.org/), some R packages (tidyr, cowplot, ggplot2, plotly), [Quarto](https://quarto.org/docs/get-started/) and an internet browser (I guess you already have one).
 
 When running the simulations you are prompted the output dir (let's say it is `OUT/test`). So you can create the plots with
 
