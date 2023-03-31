@@ -16,6 +16,7 @@ editor_options:
 ```{r setup, message=FALSE}
 #post-render: xcopy *_files output
 knitr::opts_knit$set(root.dir = params$dir)
+#setwd(params$dir)
 
 library(tidyr)
 library(cowplot)
@@ -165,9 +166,30 @@ net_rep <- function(T, R, Tmin, Trange, b, flatness, baseline, pow, A, attack, h
   Topt = findOpt(b=b, Trange = Trange, Tmin = Tmin )
   feeding = holling2(R, attack=attack, handling=handling)
   compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A/feeding
-  b <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
+  birth <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
   d <- d9_12(T, Tmin, Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt, constdeath = constdeath)
-  return(b-d)
+  return(birth-d)
+}
+
+net_rep_range <- function(Ts, R, Tmin, Trange, b, flatness, baseline, pow, A, attack, handling, constdeath=F){
+  is_pos <- rep(NA, length(Ts))
+  names(is_pos) <- Ts
+  #T=Ts[1]
+  for(T in Ts){
+    Tmax= Tmin + Trange
+    Topt = findOpt(b=b, Trange = Trange, Tmin = Tmin )
+    feeding = holling2(R, attack=attack, handling=handling)
+    compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A/feeding
+    birth <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
+    de <- d9_12(T, Tmin, Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt, constdeath = constdeath)
+    is_pos[as.character(T)] <- (birth-de) > 0
+  }
+  
+  if(any(is_pos)){
+    return( range(Ts[is_pos]) )
+  } else {
+    return(c(NA, NA))
+  }
 }
 
 only_rep <- function(T, R, Tmin, Trange, b, A, attack, handling){
@@ -192,21 +214,6 @@ par_to_num <-function(par){
 }
 ```
 
-```{r reading_parameters}
-par <- readLines("params.ini")
-par <- strsplit(par[!substr(par, 1, 1) %in% c("", "#")], "=")
-par_names <- sapply(par, function(x) x[1])
-par <- lapply(par, function(x) x[2])
-names(par) <- par_names
-
-b <- par_to_num(par$`Eppley-shape`)
-if(length(b) > 1){
-  if(length(b)==3) b = seq(b[1],b[2],b[3])
-  else b = seq(b[1],b[2],1)
-}
-
-
-```
 
 ```{r read_output}
 d <- read.table("output.tsv", sep="\t", header=T)
@@ -238,9 +245,45 @@ dl$type <- as.numeric(substr(dl$species,2,nchar(dl$species)))
 
 for simulation `r params$dir`
 
+```{r reading_parameters}
+par <- readLines("params.ini")
+par <- strsplit(par[!substr(par, 1, 1) %in% c("", "#")], "=")
+par_names <- sapply(par, function(x) x[1])
+par <- lapply(par, function(x) x[2])
+names(par) <- par_names
+
+b <- par_to_num(par$`Eppley-shape`)
+if(length(b) > 1){
+  if(length(b)==3) b = seq(b[1],b[2],b[3])
+  else b = seq(b[1],b[2],1)
+}
+
+
+```
+
+
 ```{r print_parameters}
 knitr::kable(data.frame(parameter=names(par), value=unlist(par)), row.names = F)
 ```
+
+```{r}
+if( "use_constant_death" %in% names(par) ){ # new version
+  constdeath = par$use_constant_death %in% c("true", "1")
+  death_variables = par_to_num(par$death)
+  # if(constdeath){ # version 2 death
+  #   
+  # } else { # original death
+  #   
+  # }
+  par$death_basel = death_variables[1]
+  par$death_flat = death_variables[2]
+  par$death_pow = death_variables[3]
+} else { # old version
+  constdeath=F
+}
+```
+
+
 
 # Plots
 
@@ -284,6 +327,44 @@ ggplot(last_types, aes(Tmin, Trange))+
   geom_raster(aes(fill=Topt))+
   labs(title="Topt")+
   facet_wrap(~b)
+})
+```
+
+
+```{r realised_tempniche, eval=F}
+try({
+  types$netmin <- NA
+  types$netmax <- NA
+  temprange <- range(d$temperature)
+  userange = seq(temprange[1], temprange[2], length.out=100)
+  reslevel = dl$resource[nrow(dl)]
+  
+  for(casei in 1:nrow(types)){
+    case = types[casei,]
+  
+    netrange <- net_rep_range(
+      Ts=userange, 
+      R=reslevel,
+      flatness=as.numeric(par$death_flat), 
+      baseline=as.numeric(par$death_basel), 
+      pow=as.numeric(par$death_pow), 
+      A=as.numeric(par$`Eppley-scale`), 
+      Tmin=case$Tmin, Trange=case$Trange, 
+      b=case$b, 
+      attack = as.numeric(par$attack), handling = as.numeric(par$handling),
+      constdeath=constdeath)
+    types[casei, "netmin"] <- netrange[1]
+    types[casei, "netmax"] <- netrange[2]
+    
+  }
+  
+  types$netrange <- types$netmax-types$netmin
+  types$netrange[is.na(types$netrange)] <- 0
+  
+  ggplot(types, aes(Tmin, Trange))+
+    geom_raster(aes(fill=netrange))+
+    labs(title=paste("realised temporal niche width at R=",reslevel ))+
+    facet_wrap(~b)
 })
 ```
 
@@ -488,23 +569,6 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=case$b, A=A, range = c(minT
 :::
 
 ## Death rate
-
-```{r}
-if( "use_constant_death" %in% names(par) ){ # new version
-  constdeath = par$use_constant_death %in% c("true", "1")
-  death_variables = par_to_num(par$death)
-  # if(constdeath){ # version 2 death
-  #   
-  # } else { # original death
-  #   
-  # }
-  par$death_basel = death_variables[1]
-  par$death_flat = death_variables[2]
-  par$death_pow = death_variables[3]
-} else { # old version
-  constdeath=F
-}
-```
 
 
 
