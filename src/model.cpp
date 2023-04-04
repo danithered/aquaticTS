@@ -244,20 +244,41 @@ void Model::setClimate(std::ifstream & file, unsigned int no_intervals, double l
 	}
 }
 
-void Model::setExtreme(unsigned int no, double until, double sd){
+void Model::setExtreme(unsigned int no, double until, double prob_warm){
 	std::vector<double> timepoints;
-	double timepoint;
+	const double sd_length = 0.1, mean_length=0.2, sd_diff=1.0, mean_diff=10.0;
+
+	if(Tpars.empty() || Tpars.begin()->first <= 0.0) return;
 
 	while(no--){
-		timepoint = gsl_rng_uniform(r)*until;
-		for(auto point = timepoints.begin(); point != timepoints.end(); ++point){
-			if( std::abs(timepoint - *point) < 0.025 ){
-				timepoint = gsl_rng_uniform(r)*until;
-				point = timepoints.begin();
-			}
+		// get random disturbation timepoint and length
+		double timepoint = gsl_rng_uniform(r)*until;
+		double timepoint_until = timepoint + std::abs(gsl_ran_gaussian(r, sd_length) + mean_length);
+		double diff_extreme = gsl_ran_gaussian(r, sd_diff)*mean_diff;
+
+		// find tpar after timepoint
+		while(timepoint >= Tpars.rbegin()->first) timepoint = gsl_rng_uniform(r)*until; // just in case
+		auto Tparit = Tpars.upper_bound(timepoint);
+		while(Tparit->first <= timepoint_until){
+			timepoint = gsl_rng_uniform(r)*until;
+			timepoint_until = timepoint + std::abs(gsl_ran_gaussian(r, sd_length) + mean_length);
+			Tparit = Tpars.upper_bound(timepoint);
 		}
-		extreme.emplace(timepoint, gsl_ran_gaussian(r, sd));
+
+		TempParams Tpar = (Tparit->second);
+		
+		// emplace new breakpoints
+		Tpars.emplace(timepoint, Tpar); // insert Tpar ending at timepoint	
+						//
+		 // insert new attractor ending at timepoint_until	
+		Tpars.emplace(
+				timepoint_until,
+				std::move(TempParams(
+						(gsl_rng_uniform(r) < prob_warm)?(Tpar.Qmean + diff_extreme):(Tpar.Qmean - diff_extreme),
+						Tpar.Qamp))
+				);
 	}
+
 }
 
 /// The differential equation system
@@ -309,10 +330,11 @@ void Model::setExtreme(unsigned int no, double until, double sd){
 void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	//compute temperature
 	TempParams *Tpar = &(Tpars.begin()->second);
+
 	if(Tpars.size() > 1) {
 		double tcopy = t;
-		while(tcopy > Tpars.rbegin()->first) tcopy -= Tpars.rbegin()->first;
-		Tpar = &(Tpars.upper_bound(t)->second);
+		for(const double maxt = Tpars.rbegin()->first; tcopy > maxt; tcopy -= maxt);
+		Tpar = &(Tpars.upper_bound(tcopy)->second);
 	}
 	dxdt[0] = (Tpar->Qamp * std::sin(omega * t) + Tpar->Qmean - (B*x[0]) )/C;
 	const double tempinK = x[0] + ZEROTEMP;

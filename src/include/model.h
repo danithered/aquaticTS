@@ -43,6 +43,7 @@ struct TempParams {
 	const double Qamp;
 
 	TempParams(double p1, double p2): Qmean(p1), Qamp(p2){};
+	TempParams(TempParams const & orig): Qmean(orig.Qmean), Qamp(orig.Qamp){};
 };
 
 /// The differential equation model
@@ -83,7 +84,7 @@ class Model {
 		std::array<double,3> death_variables; // not const, try to not overwrite it!
 		
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
-		std::map<double, double> extreme;
+		//std::map<double, double> extreme;
 
 
 	public:
@@ -126,7 +127,7 @@ class Model {
 
 		void setClimate(std::ifstream & file, unsigned int no_intervals, double length);
 
-		void setExtreme(unsigned int no, double until, double sd=1);
+		void setExtreme(unsigned int no, double until, double prob_warm=0.5);
 
 		void operator()( const state_type &x , state_type &dxdt , double t );
 
