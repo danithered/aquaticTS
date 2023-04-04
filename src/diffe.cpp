@@ -21,11 +21,11 @@ int main(){
 	std::vector<double> Tmin{10,20,1};
 	std::array<double, 3> death_variables{0.05, 50.0, 2.0};
 	std::vector<double> b{1.9};
-	unsigned int no_T_regimes = 1;
+	unsigned int no_T_regimes = 1, no_extreme_events = 0;
 	double inicTemp = 20.0, inicR=10.0, inicAwake = 10.0, inicDormant = 0.0,
 	       heat_capacity = 0.01, rho=1, mass=1, d_K=1, omega = 2 * M_PI,
 	       attack=1, handling=1,
-	       death_flat=50.0, death_basel=0.05, death_pow=2.0, 
+	       //death_flat=50.0, death_basel=0.05, death_pow=2.0, 
 	       h_min=0, h_range=0, 
 	       s=1, 
 	       delta = 0.1,
@@ -55,6 +55,7 @@ int main(){
 	cli.add_option("-i,--inicDormant", inicDormant, "Initial value for all of dormant genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
 	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings")->group("Climate settings");
 	cli.add_option("-n,--no_T_regimes", no_T_regimes, "Number of different temperature regimes.")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings");
+	cli.add_option("-X,--no_extreme_events", no_extreme_events, "Number of extreme climate events tru the whole simulation.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Climate settings");
 	cli.add_option("-P,--inicR", inicR, "Initial resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Initial values"); 
 	cli.add_option("-Q,--rho", rho, "Speed of resource dynamics. If you want to set Resource constant, make this and attack 0!")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-M,--mass", mass, "Body mass of the resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
@@ -145,6 +146,7 @@ int main(){
 	// set climate
 	std::ifstream climate(climate_file);
 	m.setClimate(climate, no_T_regimes, duration);
+	if(no_extreme_events) m.setExtreme(no_extreme_events, duration);
 	
 	// use ode
 	ode_wrapper mod(&m);
