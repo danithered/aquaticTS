@@ -782,12 +782,120 @@ d12 <- function(T, Efreeze, Eheat, death_basel, shift=0) {
 ggplot()+
   geom_function(fun= d12, 
                 xlim=c(-10, 50), 
-                args=list(Efreeze=0.1, Eheat=0.3, death_basel=.1))+
+                args=list(Efreeze=0.1, Eheat=0.3, death_basel=.05))+
   coord_cartesian(ylim = c(0, 1))+
   labs(y=bquote(delta[g]), x="Temperature")#+
   #geom_hline(yintercept=.5, linetype="dashed")
 
 ```
+
+
+## Death rate v 3
+
+Temperature acts on $\delta_g$
+
+- cold: death by freezing
+- warm: metabolism, low $O_2$
+
+$$T_{n, freezing} = 273.15 - \Delta T/2 + T_{opt}\\ 
+T_{n, heat} = 273.15 + \Delta T/2 + T_{opt}\\
+\delta=d_{base} +
+max \left (0, e^{E_{freezing} \frac{T_{n, freezing}-T}{8.62\times10^{-5}*T*T_{n, freezing}}}-1 \right ) +
+max \left (0, e^{-E_{heat}\frac{T_{n, heat}-T}{8.62\times10^{-5}*T*T_{n, heat}}}-1 \right )$$
+
+
+```{r, eval=FALSE}
+#| fig-align: center
+d13 <- function(T, Efreeze, Eheat, death_basel, shift=0, dist=0) {
+  #death_basel = death_basel - sum(c(Efreeze, Eheat)==0)
+  death_basel = death_basel
+  Tn1=293.15-20+shift - dist/2
+  Tn2=293.15-20+shift + dist/2
+  temp1 = exp(Efreeze*(Tn1-CtoK(T) )/8.62e-5/CtoK(T)/Tn1)-1
+  temp2 = exp(-Eheat*(Tn2-CtoK(T) )/8.62e-5/CtoK(T)/Tn2)-1
+  return( death_basel + ifelse(temp1<0,0,temp1) + ifelse(temp2<0, 0, temp2) )
+}
+
+Efreeze=0.1
+Eheat=0.3
+dist=030
+shift=19
+ggplot()+
+  geom_vline(xintercept = shift, alpha=0.5, linetype="dotted")+
+  geom_function(fun= d13, 
+                xlim=c(-10, 50), color="1",
+                args=list(Efreeze=0, Eheat=Eheat, death_basel=0, shift=shift, dist=dist))+
+  geom_function(fun= d13, 
+                xlim=c(-10, 50), color="2",
+                args=list(Efreeze=Efreeze, Eheat=0, death_basel=0, shift=shift, dist=dist))+
+  geom_function(fun= d13, 
+                xlim=c(-10, 50), color="3", linewidth=2, linetype= "dashed",
+                args=list(Efreeze=Efreeze, Eheat=Eheat, death_basel=0, shift=shift, dist=dist))+
+  scale_color_discrete(name="shift")+
+  #coord_cartesian(ylim = c(0, 5))+
+  labs(y=bquote(delta[g]), 
+       x="Temperature", 
+       caption=bquote(paste(E[freeze] == .(Efreeze), ", ",
+                            E[heat] == .(Eheat), ", ",
+                            Delta ~ T == .(dist), ", ",
+                            T[opt] == .(shift), ", "
+                            ))
+         )+
+  theme(legend.position = "top")#+
+  #geom_hline(yintercept=.5, linetype="dashed")
+
+```
+
+## Death rate v 4
+
+Temperature acts on $\delta_g$
+
+- cold: death by freezing
+- warm: metabolism, low $O_2$
+
+$$T_{n, freezing} = 273.15 - \Delta t/2 + T_{opt}\\ 
+T_{n, heat} = 273.15 + \Delta t/2 + T_{opt}\\
+\delta=
+max \left (d_{base}, e^{E_{freezing} \frac{T_{n, freezing}-T}{8.62\times10^{-5}*T*T_{n, freezing}}}  +
+e^{-E_{heat}\frac{T_{n, heat}-T}{8.62\times10^{-5}*T*T_{n, heat}}}-2 \right )$$
+
+
+```{r, eval=FALSE}
+#| fig-align: center
+d14 <- function(T, Efreeze, Eheat, death_basel, shift=0, dist=0) {
+  #death_basel = death_basel - sum(c(Efreeze, Eheat)==0)
+  death_basel = death_basel
+  Tn1=293.15-20+shift - dist/2
+  Tn2=293.15-20+shift + dist/2
+  temp1 = exp(Efreeze*(Tn1-CtoK(T) )/8.62e-5/CtoK(T)/Tn1)-1
+  temp2 = exp(-Eheat*(Tn2-CtoK(T) )/8.62e-5/CtoK(T)/Tn2)-1
+  temp = temp1+temp2
+  return( ifelse(death_basel>temp, death_basel, temp) )
+}
+
+Efreeze=0.1
+Eheat=0.3
+dist=5
+shift=40
+ggplot()+
+  geom_vline(xintercept = shift, alpha=0.5, linetype="dotted")+
+  geom_function(fun= d14, 
+                xlim=c(-10, 50), color="1",
+                args=list(Efreeze=0, Eheat=Eheat, death_basel=0, shift=shift, dist=dist))+
+  geom_function(fun= d14, 
+                xlim=c(-10, 50), color="2",
+                args=list(Efreeze=Efreeze, Eheat=0, death_basel=0, shift=shift, dist=dist))+
+  geom_function(fun= d14, 
+                xlim=c(-10, 50), color="3", linewidth=2, linetype= "dashed",
+                args=list(Efreeze=Efreeze, Eheat=Eheat, death_basel=0, shift=shift, dist=dist))+
+  scale_color_discrete(name="shift")+
+  #coord_cartesian(ylim = c(0, 5))+
+  labs(y=bquote(delta[g]), x="Temperature")+
+  theme(legend.position = "top")#+
+  #geom_hline(yintercept=.5, linetype="dashed")
+
+```
+
 
 ## Cant make it simpler
 
