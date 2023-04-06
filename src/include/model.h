@@ -64,6 +64,7 @@ class Model {
 		
 		double feeding;
 		double death_rate;
+		double currtemp;
 
 		// climate constans
 		const double heat_capacity;

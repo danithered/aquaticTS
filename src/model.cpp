@@ -159,8 +159,21 @@ Model::Model(std::vector<double> & Tranges,
 			const double base = std::exp(b / Trange), compensation = s / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
 			const unsigned int gplus = g+1; //pos of dormant stage
 
+			// death lambda
+			std::function<const double()> deathfn;
+
+			if(constant_death){
+				deathfn = [&, this]()->const double{return(death_rate);};
+			} else {
+				deathfn = [&, this, death_flat_reciproc, Topt, death_pow, death_basel]()->const double{
+					return(std::pow(std::abs( (currtemp - Topt) * death_flat_reciproc), death_pow) + death_basel);
+				}; 
+			}
+
+
+
 			//add function for awake population
-			func_awake.push_back( [&, this, Tmin, Tmax, base, compensation, g, gplus, death_flat_reciproc, Topt, death_pow, death_basel, h_min, h_range, delta](const state_type &N, state_type &dNdt, double t ){
+			func_awake.push_back( [&, this, deathfn, Tmin, Tmax, base, compensation, g, gplus, Topt, h_min, h_range, delta](const state_type &N, state_type &dNdt, double t ){
 						//variable: N, dNdt
 						//reference: this->feeding
 						//copy: Tmin, Tmax, Topt, base, compensation, g, gplus, death_flat_reciproc, death_basel
@@ -175,7 +188,8 @@ Model::Model(std::vector<double> & Tranges,
 						const double h_wake  = h_range / (1 + std::exp(-Tdiff)) + h_min; // waking up
 
 						// replication
-						const double death = constant_death?death_rate:(std::pow(std::abs( Tdiff * death_flat_reciproc), death_pow) + death_basel); 
+						//const double death = constant_death?death_rate:(std::pow(std::abs( Tdiff * death_flat_reciproc), death_pow) + death_basel); 
+						const double death=deathfn();
 						const double repl_rate = feeding * compensation * std::pow(base, diff) * (Tmax - N[0]) * diff // breeding
 							- death // death
 							- h_sleep; // falling asleep
