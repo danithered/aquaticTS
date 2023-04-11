@@ -12,8 +12,8 @@ Model::Model(const Model& orig):
 	rho(orig.rho),
 	alpha(orig.alpha),
 	beta(orig.beta),
-	constant_death(orig.constant_death),
-	death_variables(orig.death_variables)
+	death_variables(orig.death_variables),
+	precompute_death(orig.precompute_death)
 	{std::cerr << "Copy constructor called" << std::endl;}
 
 /**
@@ -108,11 +108,8 @@ Model::Model(std::vector<double> & Tranges,
 		const double mass,
 		const double dK,
 		const double _rho, 
-//		const double death_flat, 
-//		const double death_basel, 
-//		const double death_pow, 
-		std::array<double, 3> &_death_variables,
-		const bool _constant_death,
+		std::vector<double> &_death_variables,
+		const unsigned int death_type,
 		const double h_min, 
 		const double h_range, 
 		const double s, 
@@ -120,6 +117,8 @@ Model::Model(std::vector<double> & Tranges,
 		const double _omega): 
 	feeding(0.0),
 	death_rate(0.0),
+	currtemp(-ZEROTEMP),
+	currtempK(0.0),
 	heat_capacity(_heat_capacity),
 	one_minus_heatcap(1-_heat_capacity),
 	omega(_omega),
@@ -128,25 +127,17 @@ Model::Model(std::vector<double> & Tranges,
 	attack(_attack),
 	ah(_attack * handling),
 	death_variables(_death_variables),
-	constant_death(_constant_death),
+	precompute_death(false),
 	rho(_rho),
 	alpha( dK*std::pow(mass, b_K) / std::exp( E_K / (BOLTZMANNxNORMALTEMP) ) ),
 	beta(E_K / BOLTZMANN)
 {
-		// death ralated settings
-		const double death_basel=death_variables[0], death_flat=death_variables[1], death_pow=death_variables[2];
-		if(constant_death) death_variables[2] = -death_variables[2];
-
 		//start indexing
 		unsigned int g = 2; //first is temperature (N[0] = T), second is resource
 
-		// unspecific constants
-		const double death_flat_reciproc = 1/death_flat;
-
 		//add functions
-		//for(auto Trangei = Tranges.begin(); Trangei != Tranges.end(); ++Trangei) for(auto Tmini = Tmins.begin(); Tmini != Tmins.end(); ++Tmini){
 		for(unsigned int i = 0; i < Tranges.size(); ++i){
-			/* N[ 0 ] - temperature
+			/* N[ 0 ], currtemp - temperature
 			 * N[ 1 ] - resource
 			 * N[g] - awake population
 			 * N[g+1] - dormant population
@@ -154,7 +145,6 @@ Model::Model(std::vector<double> & Tranges,
 
 			// compute genotype specific variables
 			const double Tmin = Tmins[i], Trange = Tranges[i], b = bs[i], Tmax = Trange + Tmin; // for temperature
-//			const double Topt = Tmin + Trange*r_opt; // optimal temperature
 			const double Topt = optimalTemp(b, Tmin, Trange);
 			const double base = std::exp(b / Trange), compensation = s / ((2 + b + (b - 2) * std::exp(b)) * std::pow(Trange,3) / std::pow(b,3)); // for breeding
 			const unsigned int gplus = g+1; //pos of dormant stage
@@ -162,15 +152,49 @@ Model::Model(std::vector<double> & Tranges,
 			// death lambda
 			std::function<const double()> deathfn;
 
-			if(constant_death){
-				deathfn = [&, this]()->const double{return(death_rate);};
-			} else {
-				deathfn = [&, this, death_flat_reciproc, Topt, death_pow, death_basel]()->const double{
-					return(std::pow(std::abs( (currtemp - Topt) * death_flat_reciproc), death_pow) + death_basel);
-				}; 
+			switch(death_type){
+				case 0: // constant death
+					death_rate = death_variables[0];
+					deathfn = [&, this]()->const double{return(death_rate);};
+					break;
+				case 1: // power
+					{const double death_basel=death_variables[0], death_flat_reciproc=1/death_variables[1], death_pow=death_variables[2];
+					deathfn = [&, this, death_flat_reciproc, Topt, death_pow, death_basel]()->const double{
+						return(std::pow(std::abs( (currtemp - Topt) * death_flat_reciproc), death_pow) + death_basel);
+					};
+					}
+					break;
+				case 2: // exp-const   
+					// set outside death to recalculate death_rate in each timestep
+					precompute_death = true;
+					{death_variables[2] = -death_variables[2];
+					deathfn = [&, this]()->const double{return(death_rate);};
+					}
+					break;
+				case 3: // exp
+					// 0: baseline
+					// 1: Efreezing
+					// 2: Eheat
+					// 3: deltaT
+					// 4: heat_scaling factor
+					{const double death_base=death_variables[0], deltaT=death_variables[3], Efreezing=death_variables[1], Eheat=death_variables[2], heat_scale=death_variables[4];
+					const double Tnfreeze = ZEROTEMP - deltaT/2 + Topt; 
+					const double Tnheat = ZEROTEMP + deltaT/2 + Topt; 
+					const double Ef = Efreezing / BOLTZMANN / Tnfreeze;
+					const double Eh = -Eheat / BOLTZMANN / Tnheat;
+					const unsigned int missing = static_cast<unsigned int>(Efreezing == 0) + static_cast<unsigned int>(Eheat == 0);
+					const double scale = missing?heat_scale:(heat_scale/2);
+					const double death_basel = ( death_base - static_cast<double>(missing) ) * heat_scale; 
+
+					deathfn = [&, this, Tnfreeze, Tnheat, Ef, Eh, scale, death_basel]()->const double{
+						return( death_basel + (std::exp(Ef * (Tnfreeze - currtempK) / currtempK ) + std::exp(Eh * (Tnheat - currtempK) / currtempK )) * scale  );
+					}; 
+					}
+					break;
+				default:
+					std::cerr << "Death type not specified!" << std::endl;
+					break;
 			}
-
-
 
 			//add function for awake population
 			func_awake.push_back( [&, this, deathfn, Tmin, Tmax, base, compensation, g, gplus, Topt, h_min, h_range, delta](const state_type &N, state_type &dNdt, double t ){
@@ -181,7 +205,7 @@ Model::Model(std::vector<double> & Tranges,
 						//reference: feeding
 
 						// Tdiff
-						const double diff = N[0] - Tmin, Tdiff = N[0] - Topt;
+						const double diff = currtemp - Tmin, Tdiff = currtemp - Topt;
 						
 						// dormancy rates
 					        const double h_sleep = h_range / (1 + std::exp(Tdiff)) + h_min; // sleeping
@@ -190,7 +214,7 @@ Model::Model(std::vector<double> & Tranges,
 						// replication
 						//const double death = constant_death?death_rate:(std::pow(std::abs( Tdiff * death_flat_reciproc), death_pow) + death_basel); 
 						const double death=deathfn();
-						const double repl_rate = feeding * compensation * std::pow(base, diff) * (Tmax - N[0]) * diff // breeding
+						const double repl_rate = feeding * compensation * std::pow(base, diff) * (Tmax - currtemp) * diff // breeding
 							- death // death
 							- h_sleep; // falling asleep
 
@@ -343,6 +367,8 @@ void Model::setExtreme(unsigned int no, double until, double prob_warm){
  */
 void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 	//compute temperature
+	currtemp = x[0];
+	currtempK = currtemp + ZEROTEMP;
 	TempParams *Tpar = &(Tpars.begin()->second);
 
 	if(Tpars.size() > 1) {
@@ -350,12 +376,11 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 		for(const double maxt = Tpars.rbegin()->first; tcopy > maxt; tcopy -= maxt);
 		Tpar = &(Tpars.upper_bound(tcopy)->second);
 	}
-	dxdt[0] = (Tpar->Qamp * std::sin(omega * t) + Tpar->Qmean - (B*x[0]) )/C;
-	const double tempinK = x[0] + ZEROTEMP;
+	dxdt[0] = (Tpar->Qamp * std::sin(omega * t) + Tpar->Qmean - (B*currtemp) )/C;
 
 	//compute death rate if neccessary
-	if(constant_death){ 
-		double temptemp = (NORMALTEMP - tempinK) / (BOLTZMANNxNORMALTEMP * tempinK);
+	if(precompute_death){ 
+		double temptemp = (NORMALTEMP - currtempK) / (BOLTZMANNxNORMALTEMP * currtempK);
 		death_rate = death_variables[0]*( std::exp(death_variables[1]*temptemp) + std::exp(death_variables[2]*temptemp) ) ;
 	}
 
@@ -365,7 +390,7 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 
 	// compute resource
 	feeding = x[1]*attack/(1+ah*x[1]);
-	dxdt[1] = rho * (alpha * std::exp(beta/( tempinK )) - x[1]) - feeding * sumN;
+	dxdt[1] = rho * (alpha * std::exp(beta/( currtempK )) - x[1]) - feeding * sumN;
 
 
 	//compute awake pop dervatives

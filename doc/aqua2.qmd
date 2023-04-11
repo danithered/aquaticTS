@@ -904,6 +904,20 @@ d14 <- function(T, Efreeze, Eheat, death_basel, shift=0, dist=0, per=10) {
   else
     return( ((temp1+temp2)/2+death_basel)/per )
 }
+d14b <- function(T, Efreeze, Eheat, death_basel, Topt=0, deltaT=0, scale=10) {
+  
+  
+  neg = sum(c(Efreeze, Eheat)==0)
+  #death_basel = death_basel
+  Tn1=293.15-20+shift - dist/2
+  Tn2=293.15-20+shift + dist/2
+  temp1 = exp(Efreeze*(Tn1-CtoK(T) )/8.62e-5/CtoK(T)/Tn1)
+  temp2 = exp(-Eheat*(Tn2-CtoK(T) )/8.62e-5/CtoK(T)/Tn2)
+  if(neg>0)
+    return( ((temp1+temp2)+death_basel - neg)/per)
+  else
+    return( ((temp1+temp2)/2+death_basel)/per )
+}
 
 Efreeze=0.6
 Eheat=1.5

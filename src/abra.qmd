@@ -267,19 +267,41 @@ knitr::kable(data.frame(parameter=names(par), value=unlist(par)), row.names = F)
 ```
 
 ```{r}
-if( "use_constant_death" %in% names(par) ){ # new version
-  constdeath = par$use_constant_death %in% c("true", "1")
-  death_variables = par_to_num(par$death)
-  # if(constdeath){ # version 2 death
-  #   
-  # } else { # original death
-  #   
-  # }
-  par$death_basel = death_variables[1]
-  par$death_flat = death_variables[2]
-  par$death_pow = death_variables[3]
-} else { # old version
-  constdeath=F
+if("death_type" %in% names(par)){ # new version
+  if(par$death_type == "0"){ # constant
+    constdeath = T
+  } else if(par$death_type == "1"){ # power
+    constdeath = F
+    par$death_basel = death_variables[1]
+    par$death_flat = death_variables[2]
+    par$death_pow = death_variables[3]
+  } else if(par$death_type == "2"){ # exp-const
+    constdeath = T
+    par$death_basel = death_variables[1]
+    par$death_flat = death_variables[2]
+    par$death_pow = death_variables[3]
+  } else if(par$death_type == "3"){ # exp
+    constdeath = F
+  } else {
+    cat("Not expected this death_type argument!\n")
+  }
+} else {
+  if( "use_constant_death" %in% names(par) ){ # not so new version
+    constdeath = par$use_constant_death %in% c("true", "1")
+    par$death_type = 2
+    death_variables = par_to_num(par$death)
+    # if(constdeath){ # version 2 death
+    #   
+    # } else { # original death
+    #   
+    # }
+    par$death_basel = death_variables[1]
+    par$death_flat = death_variables[2]
+    par$death_pow = death_variables[3]
+  } else { # old version
+    par$death_type = 1
+    constdeath=F
+  }
 }
 ```
 
@@ -573,7 +595,7 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=case$b, A=A, range = c(minT
 
 
 ```{r, results='asis'}
-if(constdeath){
+if( as.numeric(par$death_type) == 2 ){
   cat("$$\\delta=d_{base} \\left ( e^{E_{freezing} \\frac{293.15-T}{8.62\\times10^{-5}*T*293.15}}+e^{-E_{heat}\\frac{293.15-T}{8.62\\times10^{-5}*T*293.15}} \\right )$$")
   table_to_print <- data.frame(variable=c("$d_{base}$", "$E_{freeze}$", "$E_{heat}$"), 
                                name=c("death_base", "E_freeze", "E_heat"), 
@@ -581,7 +603,7 @@ if(constdeath){
                                              "speed of dying at a low temperature", 
                                              "speed of dying at a high temperature"),
                                value=c(par$"death_basel", par$"death_flat", par$"death_pow"))
-} else {
+} else if( as.numeric(par$death_type) == 1 ) {
   cat("$$\\delta_g = {\\left | (T-T_{opt}) {d_f}^{-1} \\right |^{d_p}} +d_b $$")
   table_to_print <- data.frame(variable=c("$d_f$", "$d_b$", "$d_p$", "$T_{opt}$"), 
                                name=c("death_flat", "death_basel", "death_pow", ""), 
@@ -590,6 +612,10 @@ if(constdeath){
                                              "shape of the mortality function", 
                                              "optimal temperature computed from $T_{max}$, $T_{min}$ and $b$"),
                                value=c(par$"death_flat", par$"death_basel", par$"death_pow", "variable"))
+} else if( as.numeric(par$death_type) == 3 ){
+  
+} else if( as.numeric(par$death_type) == 0 ){
+  
 }
 ```
 

@@ -20,8 +20,8 @@
 #define BOLTZMANNxNORMALTEMP BOLTZMANN * NORMALTEMP
 
 #define MYMODEL_VERSION_MAYOR "1"
-#define MYMODEL_VERSION_MINOR "6"
-#define MYMODEL_VERSION_TEXT "two types of death curves"
+#define MYMODEL_VERSION_MINOR "7"
+#define MYMODEL_VERSION_TEXT "tree types of death curves"
 
 #define MYMODEL_VERSION "v" MYMODEL_VERSION_MAYOR "." MYMODEL_VERSION_MINOR
 #define MYMODEL_VERSION_FULL MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT
@@ -65,6 +65,7 @@ class Model {
 		double feeding;
 		double death_rate;
 		double currtemp;
+		double currtempK;
 
 		// climate constans
 		const double heat_capacity;
@@ -76,13 +77,13 @@ class Model {
 		// consumer dynamic constants
 		const double attack;
 		const double ah;
-		const bool constant_death;
 
 		// resource dynamic constants
 		const double rho;
 		const double alpha;
 		const double beta;
-		std::array<double,3> death_variables; // not const, try to not overwrite it!
+		std::vector<double> death_variables; // not const, try to not overwrite it!
+		bool precompute_death;
 		
 		std::map<double, TempParams> Tpars; //upper bound, <Tshift, Tr>
 		//std::map<double, double> extreme;
@@ -115,11 +116,8 @@ class Model {
 				const double mass,
 				const double dK,
 				const double _rho, 
-//				const double death_flat=50.0, 
-//				const double death_basel=0.05, 
-//				const double death_pow=2.0, 
-				std::array<double, 3> &_death_variables,
-				const bool use_constant_death = false,
+				std::vector<double> &_death_variables,
+				const unsigned int death_type = 1,
 				const double h_min=0.1, 
 				const double h_range=0.8, 
 				const double s=1, 
