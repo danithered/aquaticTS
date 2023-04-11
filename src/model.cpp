@@ -154,10 +154,20 @@ Model::Model(std::vector<double> & Tranges,
 
 			switch(death_type){
 				case 0: // constant death
+					if(death_variables.empty()) {
+						std::cerr << "No value given for death_variables with death type 0. Set it to 0.0." << std::endl; 
+						death_variables.push_back(0.0);
+					}
+					if(death_variables.size() != 1) throw std::runtime_error("For death type 0 one --death argument is needed!");
 					death_rate = death_variables[0];
 					deathfn = [&, this]()->const double{return(death_rate);};
 					break;
 				case 1: // power
+					if(death_variables.empty()) {
+						death_variables = std::vector<double>{0.05,50,2};
+						std::cerr << "No value given for death_variables with death type 1. Set it to [0.05, 50, 2]." << std::endl; 
+					}
+					if(death_variables.size() != 3) throw std::runtime_error("For death type 1 three --death arguments are needed!");
 					{const double death_basel=death_variables[0], death_flat_reciproc=1/death_variables[1], death_pow=death_variables[2];
 					deathfn = [&, this, death_flat_reciproc, Topt, death_pow, death_basel]()->const double{
 						return(std::pow(std::abs( (currtemp - Topt) * death_flat_reciproc), death_pow) + death_basel);
@@ -165,6 +175,11 @@ Model::Model(std::vector<double> & Tranges,
 					}
 					break;
 				case 2: // exp-const   
+					if(death_variables.empty()) {
+						death_variables = std::vector<double>{0.05,0.10,0.30};
+						std::cerr << "No value given for death_variables with death type 2. Set it to [0.05, 0.10, 0.30]." << std::endl; 
+					}
+					if(death_variables.size() != 3) throw std::runtime_error("For death type 2 three --death arguments are needed!");
 					// set outside death to recalculate death_rate in each timestep
 					precompute_death = true;
 					{death_variables[2] = -death_variables[2];
@@ -172,11 +187,16 @@ Model::Model(std::vector<double> & Tranges,
 					}
 					break;
 				case 3: // exp
+					if(death_variables.empty()) {
+						death_variables = std::vector<double>{0.0, 0.6, 1.5, 30.0, 0.1};
+						std::cerr << "No value given for death_variables with death type 3. Set it to [0.0, 0.6, 1.5, 30.0, 0.1]." << std::endl; 
+					}
 					// 0: baseline
 					// 1: Efreezing
 					// 2: Eheat
 					// 3: deltaT
 					// 4: heat_scaling factor
+					if(death_variables.size() != 5) throw std::runtime_error("For death type 3 five --death arguments are needed!");
 					{const double death_base=death_variables[0], deltaT=death_variables[3], Efreezing=death_variables[1], Eheat=death_variables[2], heat_scale=death_variables[4];
 					const double Tnfreeze = ZEROTEMP - deltaT/2 + Topt; 
 					const double Tnheat = ZEROTEMP + deltaT/2 + Topt; 
@@ -192,7 +212,7 @@ Model::Model(std::vector<double> & Tranges,
 					}
 					break;
 				default:
-					std::cerr << "Death type not specified!" << std::endl;
+					throw std::runtime_error("Death type not specified!");
 					break;
 			}
 

@@ -47,14 +47,28 @@ int main(){
 	cli.add_option("-L, --Tmin", Tmin, "Minimal breeding temperatures of consumers. Expected 3 values: from - to - by")->expected(3)->check(CLI::Validator(CLI::NonNegativeNumber).application_index(2))->capture_default_str()->group("Genotype settings");
 	cli.add_option("-b,--Eppley-shape", b, "Shape of Eppley curve. If one value provided, than identity, if three values, than: from - to - by")->expected(1,3)->capture_default_str()->group("Genotype settings"); 
 
-	cli.add_option("-d,--death", death_variables, "Parameters describing the shape of degradataion function. For details see the description of --death_type argument!")->capture_default_str()->group("Dynamic constants"); 
+	cli.add_option("-X, --death_type", death_type, "What kind of death curve should we use:\n"
+					             "\t 0: constant death. --death parameter: Pdeath\n"
+						     "\t 1: genotype dependent power function with a moving minima (Topt). --death parameters: death_basel, death_flat, death_pow\n"
+						     "\t 2: genotype independent exponential functions. --death parameters: death_base, E_freeze, E_heat\n"
+						     "\t 3: genotype dependent exponential functions. --death parameters: death_base, E_freeze, E_heat, deltaT, scale\n"
+						     "For more details about functions: see documentation or reports!")
+		->capture_default_str()->group("Dynamic constants");
+
+	cli.add_option("-d,--death", death_variables, "Parameters describing the shape of degradataion function. For details see the description of --death_type argument!\n"
+			"Default is for death type 1, if other function used, please specify variables, or leave it empty and default values will be inserted:\n"
+			"\t type 0: Pdeath = 0.0\n"
+			"\t type 1: death_basel = 0.05, death_flat = 50.0, death_pow = 2.0\n"
+			"\t type 2: death_base = 0.05, E_freeze = 0.10, E_heat = 0.30\n"
+			"\t type 3: death_base = 0.0, E_freeze = 0.6, E_heat = 1.5, deltaT = 30.0, scale = 0.1"
+			)->capture_default_str()->group("Dynamic constants"); 
 	
 	cli.add_option("-T,--inicTemp", inicTemp, "Initial temperature at t=0")->check(CLI::Range(-50.0, 50.0))->capture_default_str()->group("Initial values");
 	cli.add_option("-I,--inicAwake", inicAwake, "Initial value for all of awaken genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
 	cli.add_option("-i,--inicDormant", inicDormant, "Initial value for all of dormant genotypes")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Initial values");
 	cli.add_option("-c,--heat_capacity", heat_capacity, "heat capacity of column")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings")->group("Climate settings");
 	cli.add_option("-n,--no_T_regimes", no_T_regimes, "Number of different temperature regimes.")->check(CLI::PositiveNumber)->capture_default_str()->group("Climate settings");
-	cli.add_option("-X,--no_extreme_events", no_extreme_events, "Number of extreme climate events tru the whole simulation.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Climate settings");
+	cli.add_option("-E,--no_extreme_events", no_extreme_events, "Number of extreme climate events tru the whole simulation.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Climate settings");
 	cli.add_option("-P,--inicR", inicR, "Initial resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Initial values"); 
 	cli.add_option("-Q,--rho", rho, "Speed of resource dynamics. If you want to set Resource constant, make this and attack 0!")->check(CLI::NonNegativeNumber)->capture_default_str()->group("Dynamic constants"); 
 	cli.add_option("-M,--mass", mass, "Body mass of the resource")->check(CLI::PositiveNumber)->capture_default_str()->group("Dynamic constants"); 
@@ -71,13 +85,6 @@ int main(){
 	cli.add_option("-O,--output_interval", output_interval, "The interval between output entries. Set it to zero (0.0) to output every time.")->capture_default_str()->group("General settings"); 
 	cli.add_option("-t,--duration", duration, "The lentgh of the simulation in years.")->check(CLI::NonNegativeNumber)->capture_default_str()->group("General settings"); 
 
-	cli.add_flag("-X, --death_type", death_type, "What kind of death vurve should we use:\n"
-					             "\t 0: constant death. --death parameter: Pdeath\n"
-						     "\t 1: genotype dependent power function with a moving minima (Topt). --death parameters: death_basel, death_flat, death_pow\n"
-						     "\t 2: genotype independent exponential functions. --death parameters: death_base, E_freeze, E_heat\n"
-						     "\t 3: genotype dependent exponential functions. --death parameters: death_base, E_freeze, E_heat, deltaT, scale"
-						     "For more details about functions: see documentation or reports!")
-		->capture_default_str()->group("Dynamic constants");
 	
 	cli.set_version_flag("-v,--version", MYMODEL_VERSION " - " MYMODEL_VERSION_TEXT );
 	cli.set_config("--parameters");

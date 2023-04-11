@@ -8,7 +8,7 @@ format:
 execute: 
   echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_20"
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_35"
 editor_options: 
   chunk_output_type: console
 ---
@@ -105,6 +105,23 @@ d9_12 <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10, con
   }
 }
 
+d9_14 <- function(T, Tmin, Trange, Topt, death_variables, death_type){
+  if(as.numeric(death_type) == 0){
+    return(death_variables[1])
+  } else if(as.numeric(death_type) == 1){
+    return(d9b(T=T, Tmin=Tmin, Trange=Trange, 
+               flatness=death_variables[2], baseline=death_variables[1], pow=death_variables[3], 
+               at=Topt))
+  } else if(as.numeric(death_type) == 2){
+    return( d12(T=T, Efreeze=death_variables[2], Eheat=death_variables[3], death_basel=death_variables[1]) )
+  } else if(as.numeric(death_type) == 3){
+    return(d14(T=T, 
+               Efreeze=death_variables[2], Eheat=death_variables[3], death_basel=death_variables[1],
+               shift=Topt, 
+               dist=death_variables[4], per=1/death_variables[5]) )
+  } 
+}
+
 d9b <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10) abs(( T-at )/flatness)^pow+baseline
 
 
@@ -114,25 +131,67 @@ d12 <- function(T, Efreeze, Eheat, death_basel, shift=0) {
   return(death_basel*(exp(Efreeze*temp)+exp(-Eheat*temp2)))
 }
 
+d14 <- function(T, Efreeze, Eheat, death_basel, shift=0, dist=0, per=10) {
+  neg = sum(c(Efreeze, Eheat)==0)
+  #death_basel = death_basel
+  Tn1=293.15-20+shift - dist/2
+  Tn2=293.15-20+shift + dist/2
+  temp1 = exp(Efreeze*(Tn1-CtoK(T) )/8.62e-5/CtoK(T)/Tn1)
+  temp2 = exp(-1*Eheat*(Tn2-CtoK(T) )/8.62e-5/CtoK(T)/Tn2)
+  if(neg>0)
+    return( ((temp1+temp2)+death_basel - neg)/per)
+  else
+    return( ((temp1+temp2)/2+death_basel)/per )
+}
+
 plot_death <- function(Tmin, Trange, Topt, flatness, baseline, pow, range=c(Tmin-Trange/2, Tmin+Trange*1.5 ), constdeath=F){
     ggplot()+
-    stat_function(fun= d9_12,
+    stat_function(fun= d9_14,
                   geom="area",
                   fill= "lightgreen",
-                  args=list(Tmin=Tmin, Trange=Trange, 
-                            flatness=flatness, baseline=baseline, pow=pow, 
-                            at=Topt, constdeath=constdeath),
+                  args=list(Tmin=Tmin, Trange=Trange, Topt=Topt,
+                            death_variables=par$death_variables, death_type=par$death_type),
                   xlim=c(Tmin,Tmin+Trange),
                   linewidth=3)+
-    geom_function(fun= d9_12, 
-                  xlim=range, 
-                  args=list(Tmin=Tmin, Trange=Trange, 
-                            flatness=flatness, baseline=baseline, pow=pow, 
-                            at=Topt, constdeath=constdeath))+
+    geom_function(fun= d9_14, 
+                  args=list(Tmin=Tmin, Trange=Trange, Topt=Topt,
+                            death_variables=par$death_variables, death_type=par$death_type)
+                  )+
     coord_cartesian(ylim = c(0, NA))+
     labs(y=bquote(delta[g]), 
          x="Temperature", 
          caption = bquote(paste(T[min] == .(Tmin), ", ", T[range] == .(Trange) )))
+}
+
+plot_death_comp <- function(Tmin, Trange, Topt, death_type, death_parameters, range=c(Tmin-Trange/2, Tmin+Trange*1.5 )){
+  
+  if(as.numeric(death_type) %in% c(1, 2)){
+    if(as.numeric(death_type) == 2) constdeath=T else constdeath=F
+    plot_death(Tmin=Tmin, Trange=Trange, Topt=Topt, 
+               flatness=death_parameters[2], baseline=death_parameters[1], pow=death_parameters[3],
+               range=range, constdeath=constdeath)
+  } else if(as.numeric(death_type) == 3){
+    dp = ggplot()+
+      geom_vline(xintercept = Topt, alpha=0.5, linetype="dotted")+
+      geom_function(fun= d14, 
+                    xlim=range,
+                    args=list(Efreeze=death_parameters[2], 
+                              Eheat=death_parameters[3], 
+                              death_basel=death_parameters[1], 
+                              shift=Topt, dist=death_parameters[4],
+                              per=1/death_parameters[5]))+
+      labs(y=bquote(delta[g]), x="Temperature",
+           caption=bquote(paste(E[freeze] == .(death_parameters[2]), ", ",
+                                E[heat] == .(death_parameters[3]), ", ",
+                                d[base] == .(death_parameters[1]), ", ",
+                                Delta ~ T == .(death_parameters[4]), ", ",
+                                T[opt] == .(Topt), ", ",
+                                beta == .(death_parameters[5])
+                                )))+
+      theme(legend.position = "top")
+    dp + coord_cartesian(ylim=c(0, min(layer_scales(dp)$y$range$range[2], 2)))
+  }
+  
 }
 
 tsleep <- function(x, Tmin, Trange, hrange=0.8, hmin=0.1, at=0.5) hrange/( 1+exp(  x-at ) ) + hmin
@@ -161,17 +220,18 @@ plot_sleep <- function(Tmin, Trange, Topt, hrange, hmin, range=c(Tmin-Trange/2, 
     labs(x="Temperature", y= bquote(P[sleep]), caption = bquote(paste(T[min] == .(Tmin), ", ", T[range] == .(Trange) )))
 }
 
-net_rep <- function(T, R, Tmin, Trange, b, flatness, baseline, pow, A, attack, handling, constdeath=F){
+net_rep <- function(T, R, Tmin, Trange, b, death_variables, death_type, A, attack, handling){
   Tmax= Tmin + Trange
   Topt = findOpt(b=b, Trange = Trange, Tmin = Tmin )
   feeding = holling2(R, attack=attack, handling=handling)
   compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A/feeding
   birth <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
-  d <- d9_12(T, Tmin, Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt, constdeath = constdeath)
+  d <- d9_14(T, Tmin, Trange, Topt=Topt, 
+             death_variables=death_variables, death_type=death_type)
   return(birth-d)
 }
 
-net_rep_range <- function(Ts, R, Tmin, Trange, b, flatness, baseline, pow, A, attack, handling, constdeath=F){
+net_rep_range <- function(Ts, R, Tmin, Trange, b, death_variables, death_type, A, attack, handling){
   is_pos <- rep(NA, length(Ts))
   names(is_pos) <- Ts
   #T=Ts[1]
@@ -181,7 +241,8 @@ net_rep_range <- function(Ts, R, Tmin, Trange, b, flatness, baseline, pow, A, at
     feeding = holling2(R, attack=attack, handling=handling)
     compensation = (2+b+(b-2)*exp(b))*Trange^3/b^3/A/feeding
     birth <- b6mod(T, Tmin, Tmax, Trange, b, compensation)
-    de <- d9_12(T, Tmin, Trange, flatness=flatness, baseline=baseline, pow=pow, at=Topt, constdeath = constdeath)
+    de <- d9_14(T, Tmin, Trange, Topt=Topt, 
+             death_variables=death_variables, death_type=death_type)
     is_pos[as.character(T)] <- (birth-de) > 0
   }
   
@@ -268,6 +329,8 @@ knitr::kable(data.frame(parameter=names(par), value=unlist(par)), row.names = F)
 
 ```{r}
 if("death_type" %in% names(par)){ # new version
+  par$death = as.numeric(strsplit(substr(par$death, 2, nchar(par$death)-1), ",")[[1]])
+  
   if(par$death_type == "0"){ # constant
     constdeath = T
   } else if(par$death_type == "1"){ # power
@@ -290,16 +353,13 @@ if("death_type" %in% names(par)){ # new version
     constdeath = par$use_constant_death %in% c("true", "1")
     par$death_type = 2
     death_variables = par_to_num(par$death)
-    # if(constdeath){ # version 2 death
-    #   
-    # } else { # original death
-    #   
-    # }
+    par$death = death_variables
     par$death_basel = death_variables[1]
     par$death_flat = death_variables[2]
     par$death_pow = death_variables[3]
   } else { # old version
     par$death_type = 1
+    par$death = c(par$death_basel, par$death_flat, par$death_pow)
     constdeath=F
   }
 }
@@ -594,7 +654,7 @@ plot_birthrate(Tmin=case$Tmin, Trange=case$Trange, b=case$b, A=A, range = c(minT
 
 
 
-```{r, results='asis'}
+```{r par_death_which, results='asis'}
 if( as.numeric(par$death_type) == 2 ){
   cat("$$\\delta=d_{base} \\left ( e^{E_{freezing} \\frac{293.15-T}{8.62\\times10^{-5}*T*293.15}}+e^{-E_{heat}\\frac{293.15-T}{8.62\\times10^{-5}*T*293.15}} \\right )$$")
   table_to_print <- data.frame(variable=c("$d_{base}$", "$E_{freeze}$", "$E_{heat}$"), 
@@ -613,14 +673,29 @@ if( as.numeric(par$death_type) == 2 ){
                                              "optimal temperature computed from $T_{max}$, $T_{min}$ and $b$"),
                                value=c(par$"death_flat", par$"death_basel", par$"death_pow", "variable"))
 } else if( as.numeric(par$death_type) == 3 ){
-  
+  cat("$$T_{n, freezing} = 273.15 - \\Delta T/2 + T_{opt} \\\\
+  T_{n, heat} = 273.15 + \\Delta T/2 + T_{opt} \\\\
+  \\delta_g=\\alpha \\left (d_{base}+  \\frac{e^{E_{freezing} \\frac{T_{n, freezing}-T}{8.62\\times10^{-5}*T*T_{n, freezing}}}  +
+  e^{-E_{heat}\\frac{T_{n, heat}-T}{8.62\\times10^{-5}*T*T_{n, heat}}}} {2} \\right )$$")
+  table_to_print <- data.frame(variable=c("$d_{base}$", "$E_{freeze}$", "$E_{heat}$", "$\\Delta T$", "$\\beta$"), 
+                               name=c("death_base", "E_freeze", "E_heat", "deltaT", "beta"), 
+                               description=c("elevation of mortality rate function", 
+                                             "speed of dying at a low temperature", 
+                                             "speed of dying at a high temperature",
+                                             "the span of baseline death",
+                                             ""),
+                               value=par$death)
 } else if( as.numeric(par$death_type) == 0 ){
-  
+  cat(paste("$$\\delta = ", par$death_parameters, "$$"))
+  table_to_print <- data.frame(variable=c("$\\delta$"), 
+                               name=c("value"), 
+                               description=c("death rate for consumers"),
+                               value=par$death_variables)
 }
 ```
 
 
-```{r}
+```{r printing_death_variables_as_table}
 knitr::kable(table_to_print)
 ```
 
@@ -634,11 +709,14 @@ case = types[types$Trange==min(types$Trange) & types$Tmin==min(types$Tmin),]
 
 ```{r}
 #| fig-align: center
-
-plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
-           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10),
-           constdeath = constdeath)
+plot_death_comp(Tmin = case$Tmin[1], Trange = case$Trange[1], Topt = case$Topt[1], 
+                death_type=par$death_type, death_parameters=par$death, 
+                range=c(minT-10, maxT+10))
+# 
+# plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
+#            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+#            range = c(minT-10, maxT+10),
+#            constdeath = constdeath)
 ```
 
 
@@ -654,11 +732,14 @@ case = types[types$Trange==min(types$Trange) & types$Tmin==max(types$Tmin),]
 
 ```{r}
 #| fig-align: center
+plot_death_comp(Tmin = case$Tmin[1], Trange = case$Trange[1], Topt = case$Topt[1], 
+                death_type=par$death_type, death_parameters=par$death, 
+                range=c(minT-10, maxT+10))
 
-plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
-           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10),
-           constdeath = constdeath)
+# plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
+#            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+#            range = c(minT-10, maxT+10),
+#            constdeath = constdeath)
 ```
 
 
@@ -674,10 +755,15 @@ case = types[types$Trange==max(types$Trange) & types$Tmin==min(types$Tmin),]
 ```{r}
 #| fig-align: center
 
-plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
-           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10),
-           constdeath = constdeath)
+plot_death_comp(Tmin = case$Tmin[1], Trange = case$Trange[1], Topt = case$Topt[1], 
+                death_type=par$death_type, death_parameters=par$death, 
+                range=c(minT-10, maxT+10))
+
+
+# plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
+#            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+#            range = c(minT-10, maxT+10),
+#            constdeath = constdeath)
 ```
 
 
@@ -693,11 +779,14 @@ case = types[types$Trange==max(types$Trange) & types$Tmin==max(types$Tmin),]
 
 ```{r}
 #| fig-align: center
+plot_death_comp(Tmin = case$Tmin[1], Trange = case$Trange[1], Topt = case$Topt[1], 
+                death_type=par$death_type, death_parameters=par$death, 
+                range=c(minT-10, maxT+10))
 
-plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
-           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10),
-           constdeath = constdeath)
+# plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
+#            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+#            range = c(minT-10, maxT+10),
+           # constdeath = constdeath)
 ```
 
 ### Most abundant in last generation
@@ -708,11 +797,14 @@ case = types[types$type == last_types[last_types$abundance == max(last_types$abu
 
 ```{r}
 #| fig-align: center
+plot_death_comp(Tmin = case$Tmin[1], Trange = case$Trange[1], Topt = case$Topt[1], 
+                death_type=par$death_type, death_parameters=par$death, 
+                range=c(minT-10, maxT+10))
 
-plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
-           flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
-           range = c(minT-10, maxT+10),
-           constdeath = constdeath)
+# plot_death(Tmin = case$Tmin[1], Trange= case$Trange[1], Topt = case$Topt[1], 
+#            flatness = as.numeric(par$death_flat), baseline = as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+#            range = c(minT-10, maxT+10),
+#            constdeath = constdeath)
 ```
 
 :::
@@ -816,14 +908,14 @@ plot_sleep(Tmin=case$Tmin[1], Trange=case$Trange[1], Topt=case$Topt[1],
 ### plot
 
 ```{r, eval=T}
-Tmin = case$Tmin
-Trange = case$Trange
-Tmax = Tmin+Trange
-Topt = case$Topt
+Tmin = case$Tmin[1]
+Trange = case$Trange[1]
+Tmax = Tmin+Trange[1]
+Topt = case$Topt[1]
 ```
 
 
-```{r, eval=T}
+```{r winner_props_all, eval=T}
 #| fig-asp: 0.4
 #| fig-align: center
 #| out-width: 100%
@@ -865,16 +957,21 @@ for(res in reses){
 
 
 death <- ggplot()+
-  geom_function(fun = d9_12, 
+  geom_function(fun = d9_14, 
                 xlim=c(minT-10, maxT+10), 
-                args=list(Tmin=Tmin, Trange=Trange, 
-                          pow=as.numeric(par$death_pow), flatness=as.numeric(par$death_flat), baseline=as.numeric(par$death_basel), 
-                          at=Topt, constdeath=constdeath))+
+                args=list(Tmin=Tmin, Trange=Trange, Topt=Topt,
+                          death_variables=par$death, death_type=par$death_type 
+                          ))+
   #coord_cartesian(ylim=c(0, 1))+
   labs(y="Death rate", x="Temperature")+
+  scale_y_continuous(position = "right")+
   theme(
-    axis.title.x = element_blank()
+    axis.title.x = element_blank(), 
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
   )
+
+death <- death + coord_cartesian(ylim= layer_scales(birth)$y$range$range)
 
 Rn <- ggplot()+
   geom_rect(aes(xmin=Tmin, xmax=Tmax, ymin=-Inf, ymax=Inf), fill="red", alpha=0.1) +
@@ -899,37 +996,39 @@ for(res in reses){
     geom_function(fun = net_rep, 
                 args=list(
                   R=res,
-                  flatness=as.numeric(par$death_flat), 
-                  baseline=as.numeric(par$death_basel), 
-                  pow=as.numeric(par$death_pow), 
+                  death_variables=par$death,
+                  death_type=par$death_type,
                   A=as.numeric(par$`Eppley-scale`), 
                   Tmin=Tmin, Trange=Trange, 
                   b=case$b, 
-                  attack = as.numeric(par$attack), handling = as.numeric(par$handling),
-                  constdeath=constdeath), 
+                  attack = as.numeric(par$attack), handling = as.numeric(par$handling)
+                  ), 
                 xlim = c(minT-10, maxT+10),
                 color=as.character(res+1))
 }
 
+Rn = Rn + coord_cartesian(ylim=c(max(layer_scales(Rn)$y$range$range[1], -abs(layer_scales(Rn)$y$range$range[2])),NA ))
 
-plot_grid(plot_grid(birth, death, ncol=2, align="h"), Rn, ncol=1, rel_heights = c(1, 2))
+
+plot_grid(plot_grid(birth, death, ncol=2, align="h", rel_widths = c(0.6, 0.4)), Rn, ncol=1, rel_heights = c(1, 2))
 ```
 
 
 ### in 3D
 
-```{r, eval=T}
+```{r winner_propsall_3Dplot, eval=T}
 temp <- seq(minT-10, maxT+10, 0.1)
 resource <- seq(0, 10)
 
 
 R <- outer(temp, resource, net_rep, 
-           flatness=as.numeric(par$death_flat), baseline=as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           #flatness=as.numeric(par$death_flat), baseline=as.numeric(par$death_basel), pow=as.numeric(par$death_pow), 
+           death_variables=par$death,
+           death_type=par$death_type,
            A=as.numeric(par$`Eppley-scale`), 
            Tmin=Tmin, Trange=Trange, 
            b=case$b, 
-           attack = as.numeric(par$attack), handling = as.numeric(par$handling),
-           constdeath=constdeath)
+           attack = as.numeric(par$attack), handling = as.numeric(par$handling))
 
 
 plot_ly(y=temp, x=resource) |>
@@ -962,7 +1061,7 @@ plot_ly(y=temp, x=resource) |>
 
 ### contour
 
-```{r, cache=F, eval=T}
+```{r winner_propsall_countour, cache=F, eval=T}
 plot_ly(x=resource, y=temp, z=R, type="contour")|>
   layout(
             xaxis = list(title = 'Resource', autorange="reversed"), 
