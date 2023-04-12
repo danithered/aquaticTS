@@ -19,7 +19,7 @@ int main(){
 	// model parameters
 	std::vector<double> Trange{5,10,1};
 	std::vector<double> Tmin{10,20,1};
-	std::vector<double> death_variables{0.05, 50.0, 2.0};
+	std::vector<double> death_variables;
 	std::vector<double> b{1.9};
 	unsigned int no_T_regimes = 1, no_extreme_events = 0, death_type = 1;
 	double inicTemp = 20.0, inicR=10.0, inicAwake = 10.0, inicDormant = 0.0,

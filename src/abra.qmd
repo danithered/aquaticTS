@@ -8,7 +8,7 @@ format:
 execute: 
   echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_35"
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_38"
 editor_options: 
   chunk_output_type: console
 ---
@@ -128,7 +128,7 @@ d9b <- function(T, Tmin, Trange, flatness=50, baseline=0.05, pow=3, at=10) abs((
 d12 <- function(T, Efreeze, Eheat, death_basel, shift=0) {
   temp = (293.15-CtoK(T) )/8.62e-5/CtoK(T)/293.15
   temp2 = (293.15-CtoK(T+shift) )/8.62e-5/CtoK(T+shift)/293.15
-  return(death_basel*(exp(Efreeze*temp)+exp(-Eheat*temp2)))
+  return(death_basel*(exp(Efreeze*temp)+exp(-1*Eheat*temp2)))
 }
 
 d14 <- function(T, Efreeze, Eheat, death_basel, shift=0, dist=0, per=10) {
@@ -146,16 +146,17 @@ d14 <- function(T, Efreeze, Eheat, death_basel, shift=0, dist=0, per=10) {
 
 plot_death <- function(Tmin, Trange, Topt, flatness, baseline, pow, range=c(Tmin-Trange/2, Tmin+Trange*1.5 ), constdeath=F){
     ggplot()+
-    stat_function(fun= d9_14,
-                  geom="area",
-                  fill= "lightgreen",
-                  args=list(Tmin=Tmin, Trange=Trange, Topt=Topt,
-                            death_variables=par$death_variables, death_type=par$death_type),
-                  xlim=c(Tmin,Tmin+Trange),
-                  linewidth=3)+
+    # stat_function(fun= d9_14,
+    #               geom="area",
+    #               fill= "lightgreen",
+    #               args=list(Tmin=Tmin, Trange=Trange, Topt=Topt,
+    #                         death_variables=par$death, death_type=par$death_type),
+    #               xlim=range
+    #               )+
     geom_function(fun= d9_14, 
                   args=list(Tmin=Tmin, Trange=Trange, Topt=Topt,
-                            death_variables=par$death_variables, death_type=par$death_type)
+                            death_variables=par$death, death_type=par$death_type),
+                  xlim=range
                   )+
     coord_cartesian(ylim = c(0, NA))+
     labs(y=bquote(delta[g]), 
@@ -335,14 +336,14 @@ if("death_type" %in% names(par)){ # new version
     constdeath = T
   } else if(par$death_type == "1"){ # power
     constdeath = F
-    par$death_basel = death_variables[1]
-    par$death_flat = death_variables[2]
-    par$death_pow = death_variables[3]
+    par$death_basel = par$death[1]
+    par$death_flat = par$death[2]
+    par$death_pow = par$death[3]
   } else if(par$death_type == "2"){ # exp-const
     constdeath = T
-    par$death_basel = death_variables[1]
-    par$death_flat = death_variables[2]
-    par$death_pow = death_variables[3]
+    par$death_basel = par$death[1]
+    par$death_flat = par$death[2]
+    par$death_pow = par$death[3]
   } else if(par$death_type == "3"){ # exp
     constdeath = F
   } else {
@@ -673,9 +674,9 @@ if( as.numeric(par$death_type) == 2 ){
                                              "optimal temperature computed from $T_{max}$, $T_{min}$ and $b$"),
                                value=c(par$"death_flat", par$"death_basel", par$"death_pow", "variable"))
 } else if( as.numeric(par$death_type) == 3 ){
-  cat("$$T_{n, freezing} = 273.15 - \\Delta T/2 + T_{opt} \\\\
-  T_{n, heat} = 273.15 + \\Delta T/2 + T_{opt} \\\\
-  \\delta_g=\\alpha \\left (d_{base}+  \\frac{e^{E_{freezing} \\frac{T_{n, freezing}-T}{8.62\\times10^{-5}*T*T_{n, freezing}}}  +
+  cat("$$T_{n, freezing} = 273.15 - \\Delta T/2 + T_{opt} \\\\ \n
+  T_{n, heat} = 273.15 + \\Delta T/2 + T_{opt} \\\\ \n
+  \\delta_g=\\beta \\left (d_{base}+  \\frac{e^{E_{freezing} \\frac{T_{n, freezing}-T}{8.62\\times10^{-5}*T*T_{n, freezing}}}  +
   e^{-E_{heat}\\frac{T_{n, heat}-T}{8.62\\times10^{-5}*T*T_{n, heat}}}} {2} \\right )$$")
   table_to_print <- data.frame(variable=c("$d_{base}$", "$E_{freeze}$", "$E_{heat}$", "$\\Delta T$", "$\\beta$"), 
                                name=c("death_base", "E_freeze", "E_heat", "deltaT", "beta"), 
@@ -1051,7 +1052,10 @@ plot_ly(y=temp, x=resource) |>
   layout(scene = list(
             xaxis = list(title = 'Resource'), 
             yaxis = list(title = 'Temperature'),
-            zaxis = list(title = 'Replication rate'),
+            zaxis = list(title = 'Replication rate', 
+                         range=c(max(layer_scales(Rn)$y$range$range[1],
+                                     -abs(layer_scales(Rn)$y$range$range[2])),NA ),
+                          constrain="domain"),
             camera = list(
               eye = list(z=0.5, y = 0.1, x=2)
             )

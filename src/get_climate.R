@@ -2,22 +2,30 @@ setwd("/home/danielred/data/programs/aquaticTS/src")
 library(geodata)
 library(ggplot2)
 library(dplyr)
+library(tidyr)
 
 # settings
 point_x = 14.480255
 point_y = 48.975658
 width_x = 0.1
 width_y = 0.1
-nameto = "/home/danielred/data/programs/aquaticTS/IN/climate2.tsv"
+nametoS = "/home/danielred/data/programs/aquaticTS/IN/CB"
+
+
+#timewindow <- "2061-2080"
+#timewindow <- "2021-2040"
+timewindow <- "2041-2060"
+
+nameto <- paste0(nametoS, timewindow, ".tsv")
 
 # get climate data
 climate <- xfun::cache_rds({
-  biomin <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmin", res=10, path=tempdir())
+  biomin <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", timewindow, var="tmin", res=10, path=tempdir())
   #bioavg <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tavg", res=10, path=tempdir())
-  biomax <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", "2061-2080", var="tmax", res=10, path=tempdir())
+  biomax <- cmip6_tile(15, 49, "CNRM-CM6-1-HR", "585", timewindow, var="tmax", res=10, path=tempdir())
   
   list( biomin=biomin, biomax=biomax )
-})
+}, hash=list(timewindow))
 
 # set area
 myext = ext(point_x-width_x/2, point_x+width_x/2, point_y-width_y/2, point_y+width_y/2)
@@ -48,9 +56,19 @@ b3 <- b2 |> pivot_wider(names_from = parameter, values_from = val)
 #b3 <- b3[,c("month", "tmin", "tmax")]
 
 # plotting it
-ggplot(b3, aes(x=month))+
-  geom_linerange(aes(ymin=tmin, ymax=tmax))+
-  labs(x="Month", y="Ground temperature [Celsius degree]")
+times <- seq(0, 1, by = 0.01)
+
+b3_s <- b3 |> 
+  uncount(max(times), .id="period") |>
+  mutate(month=as.numeric(month)/12) |>
+  arrange(month) |>
+  summarise(spline_x = spline(month, tmin)[["x"]], 
+            spline_hi = spline(month, tmax)[["y"]], 
+            spline_lo = spline(month, tmin)[["y"]])
+ggplot()+
+  geom_ribbon(data=b3_s[b3_s$spline_x <= 1 & b3_s$spline_x >= 0,], aes(x=spline_x*12, ymax=spline_hi, ymin=spline_lo), fill="coral")+
+  geom_linerange(data= b3, aes(x=as.numeric(month), ymin=tmin, ymax=tmax), linewidth=1.5)+
+  labs(x="Month", y="Ground temperature [Celsius degree]", title=paste("Ceske Budejovice", timewindow))
 
 
 # saving
