@@ -28,7 +28,9 @@ And of course you have to download the neccessary files. The easiest way to do s
 ## Installation
 
 1. `cd` to project directory
-2. `make`
+2. `git submodule init`
+3. `git submodule update`
+4. `make`
 
 ## Usage
 
