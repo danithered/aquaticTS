@@ -139,6 +139,7 @@ int main(){
 
 	// create genotypes
 	for(double bval = b[0]; bval <= b[1]; bval += b[2]) for(double T_range = Trange[0]; T_range <= Trange[1]; T_range += Trange[2]) for(double T_min = Tmin[0]; T_min <= Tmin[1]; T_min += Tmin[2]){
+		if(bval == 0.0) continue;
 		Tranges.push_back(T_range);
 		Tmins.push_back(T_min);
 		bs.push_back(bval);

@@ -420,7 +420,7 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
 
 /**
  * It looks for the \f$\frac{db_g}{dT}=0\f$ solutions.
- * It draws back to a secondary equation with 2 real roots. The optima is the higher from the two values
+ * It draws back to a secondary equation with 2 real roots. The optima is the second from the two values
  * \f[T_{1,2}=\frac{-b -2\frac{b}{T_{range}}T_{min} + 2 \pm \sqrt{b^2+4 }}{-2 \frac{b}{T_{range}}}\f]
  *
  * Detailed:
@@ -470,8 +470,11 @@ void Model::operator()( const state_type &x , state_type &dxdt , double t ){
  * \f]
  */
 const double optimalTemp(const double b, const double Tmin, const double Trange) {
-	const double nominator = -2*b/Trange, first = -b + nominator*Tmin + 2, second = std::sqrt(b*b+4);
-	return( std::max( (first+second)/nominator, (first-second)/nominator) );
+	if(b==0.0) throw std::invalid_argument("b cant be zero!");
+	const double nominator = -2*b/Trange;
+//	const double first = -b + nominator*Tmin + 2, second = std::sqrt(b*b+4);
+//	return( std::max( (first+second)/nominator, (first-second)/nominator) );
+	return (-b + nominator*Tmin + 2 - std::sqrt(b*b+4))/ nominator ;
 }
 
 Reporter2::Reporter2(const char *filename): file( new std::ofstream(filename) ), started(std::make_shared<bool>(false)), next_output(std::make_shared<double>(0.0)), output_interval(0.0){

@@ -8,7 +8,7 @@ format:
 execute: 
   echo: false
 params:
-  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_38"
+  dir: "/home/danielred/data/programs/aquaticTS/OUT/test_51"
 editor_options: 
   chunk_output_type: console
 ---
@@ -16,7 +16,7 @@ editor_options:
 ```{r setup, message=FALSE}
 #post-render: xcopy *_files output
 knitr::opts_knit$set(root.dir = params$dir)
-#setwd(params$dir)
+setwd(params$dir)
 
 library(tidyr)
 library(cowplot)
@@ -28,9 +28,10 @@ library(plotly)
 ```{r functions}
 findOpt <- function(Trange, Tmin, b=1.9){
   nom=-2*b/Trange
-  first = -b + nom*Tmin + 2
-  second = sqrt(b^2+4)
-  return( max(c((first+second)/nom, (first-second)/nom)) )
+  #first = -b + nom*Tmin + 2
+  #second = sqrt(b^2+4)
+  return( (-b + nom*Tmin + 2 -sqrt(b^2+4))/nom )
+  #return( max(c((first+second)/nom, (first-second)/nom)) )
 }
 CtoK <- function(x) return(x+273.15)
 KtoC <- function(x) return(x-273.15)
@@ -48,12 +49,6 @@ b6mod <- function(T, Tmin, Tmax, Trange, b, compensation){
   return(ifelse(r < 0, 0, r))
 }
 
-findOpt <- Vectorize(function(b, Trange, Tmin){
-  nom=-2*b/Trange
-  first = -b + nom*Tmin + 2
-  second = sqrt(b^2+4)
-  return( max(c((first+second)/nom, (first-second)/nom)) )
-})
 
 plot_birthrate <- function(Tmin, Trange, b, A, range=c(Tmin-Trange/2, Tmin+Trange*1.5 ) ){
 
@@ -301,6 +296,7 @@ dl$type <- as.numeric(substr(dl$species,2,nchar(dl$species)))
 #dl$Tmin <- sapply(dl$type,function(x) types[types$type == x, "Tmin"])
 #dl$Topt <- sapply(dl$type,function(x) types[types$type == x, "Topt"])
 #dl$Topt <- apply(dl[,c("Tmin", "Trange")], 1, function(x) findOpt(Trange=x["Trange"], Tmin = x["Tmin"]))
+rm(d)
 ```
 
 # Parameters
@@ -386,6 +382,8 @@ res <- ggplot(dl)+
   theme(legend.position = "none")
 
 plot_grid(ab, temp, res, ncol=1)
+
+rm(ab, temp, res)
 ```
 
 ## Abundance in last timestep
@@ -454,9 +452,12 @@ try({
 
 ## Averages over time
 
-```{r plot_average_strategy_over_t}
+```{r maximal_temp}
 types$Tmax <- types$Tmin+types$Trange
+```
 
+
+```{r plot_average_strategy_over_t, eval=F}
 avgs <- dl[dl$state == "N", ] |> 
   group_by(time) |>
   summarise(
@@ -468,11 +469,13 @@ ggplot(avgs, aes(x=time))+
   geom_ribbon(aes(ymin=mean_Tmin, ymax=mean_Tmax), alpha=0.5)+
   geom_line(aes(y=mean_Topt))+
   labs(y="Mean of optimal temperature range", x="Time")
+
+rm(avgs)
 ```
 
 ## Winner strategy over time
 
-```{r plot_winner_strategy_over_t, message=FALSE}
+```{r plot_winner_strategy_over_t, message=FALSE, eval=F}
 bests <- 
   dl[dl$state == "N", ] |> 
   group_by(time) |>
@@ -487,6 +490,12 @@ ggplot(bests[bests$no_bests==1,], aes(x=time))+
   geom_ribbon(aes(ymin=best_Tmin, ymax=best_Tmax), alpha=0.5)+
   geom_line(aes(y=best_Topt))+
   labs(y="Temperature range of most abundant genotype", x="Time")
+
+rm(bests)
+```
+
+```{r}
+rm(dl)
 ```
 
 
@@ -1017,7 +1026,7 @@ plot_grid(plot_grid(birth, death, ncol=2, align="h", rel_widths = c(0.6, 0.4)), 
 
 ### in 3D
 
-```{r winner_propsall_3Dplot, eval=T}
+```{r winner_propsall_3Dplot, eval=F}
 temp <- seq(minT-10, maxT+10, 0.1)
 resource <- seq(0, 10)
 
@@ -1065,7 +1074,7 @@ plot_ly(y=temp, x=resource) |>
 
 ### contour
 
-```{r winner_propsall_countour, cache=F, eval=T}
+```{r winner_propsall_countour, cache=F, eval=F}
 plot_ly(x=resource, y=temp, z=R, type="contour")|>
   layout(
             xaxis = list(title = 'Resource', autorange="reversed"), 

@@ -645,11 +645,9 @@ b^2+4 }}
 {-2 \frac{b}{T_{range}}}$$
 
 ```{r}
-findOpt <- function(b, Trange, Tmin){
+findOpt <- function(Trange, Tmin, b=1.9){
   nom=-2*b/Trange
-  first = -b + nom*Tmin + 2
-  second = sqrt(b^2+4)
-  return( max(c((first+second)/nom, (first-second)/nom)) )
+  return( (-b + nom*Tmin + 2 -sqrt(b^2+4))/nom )
 }
 ```
 
